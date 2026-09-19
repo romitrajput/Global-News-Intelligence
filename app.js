@@ -818,10 +818,12 @@ Please explain:
     return `<div class="ai-actions">
       <b>Analyze with AI</b>
       <div class="ai-buttons">
-        <button class="btn small" data-act="ai" data-ai="chatgpt" data-id="${it.id}">ChatGPT</button>
-        <button class="btn small" data-act="ai" data-ai="claude" data-id="${it.id}">Claude</button>
-        <button class="btn small" data-act="ai" data-ai="gemini" data-id="${it.id}">Gemini</button>
-        <button class="btn small" data-act="ai" data-ai="grok" data-id="${it.id}">Grok</button>
+        <button class="btn small ai-icon" data-act="ai" data-ai="chatgpt" data-id="${it.id}" title="Analyze with ChatGPT">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="12" r="10"/><text x="12" y="14" text-anchor="middle" font-size="11" font-weight="bold" fill="white">GP</text></svg>
+        </button>
+        <button class="btn small ai-icon" data-act="ai" data-ai="claude" data-id="${it.id}" title="Analyze with Claude">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M12 9v6M9 12h6" stroke="white" stroke-width="1.5" fill="none"/></svg>
+        </button>
       </div>
     </div>`;
   }
@@ -830,9 +832,7 @@ Please explain:
     const prompt = encodeURIComponent(aiPrompt(it));
     const urls = {
       chatgpt: 'https://chatgpt.com/?q=' + prompt,
-      claude: 'https://claude.ai/new?q=' + prompt,
-      gemini: 'https://gemini.google.com/app?prompt=' + prompt,
-      grok: 'https://grok.com/?q=' + prompt
+      claude: 'https://claude.ai/new?q=' + prompt
     };
     const url = urls[provider];
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
