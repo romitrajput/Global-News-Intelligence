@@ -800,11 +800,50 @@ if (typeof document !== 'undefined') (function () {
     </article>`;
   }
 
+  /* ---------- Analyze with AI (headline is the only thing sent) ---------- */
+  function aiPrompt(it) {
+    return `Analyze this news/event:
+
+${it.headline}
+
+Please explain:
+1. What happened?
+2. Why is it important?
+3. What could be the impact?
+4. Which countries, industries and companies could be affected?
+5. What should be monitored next?`;
+  }
+
+  function aiLinks(it) {
+    return `<div class="ai-actions">
+      <b>Analyze with AI</b>
+      <div class="ai-buttons">
+        <button class="btn small" data-act="ai" data-ai="chatgpt" data-id="${it.id}">ChatGPT</button>
+        <button class="btn small" data-act="ai" data-ai="claude" data-id="${it.id}">Claude</button>
+        <button class="btn small" data-act="ai" data-ai="gemini" data-id="${it.id}">Gemini</button>
+        <button class="btn small" data-act="ai" data-ai="grok" data-id="${it.id}">Grok</button>
+      </div>
+    </div>`;
+  }
+
+  function openAI(it, provider) {
+    const prompt = encodeURIComponent(aiPrompt(it));
+    const urls = {
+      chatgpt: 'https://chatgpt.com/?q=' + prompt,
+      claude: 'https://claude.ai/new?q=' + prompt,
+      gemini: 'https://gemini.google.com/app?prompt=' + prompt,
+      grok: 'https://grok.com/?q=' + prompt
+    };
+    const url = urls[provider];
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   function detailsHTML(it) {
     const rel = (it.related || []).map(id => all().find(x => x.id === id)).filter(Boolean);
     const opt = (list, cur) => list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
     const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
     return `<div class="details">
+      ${aiLinks(it)}
       ${it.why ? `<p class="why"><b>Why it matters</b> ${esc(it.why)}</p>` : ''}
       ${(it.facts || []).length ? `<ul class="facts">${it.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
       <dl class="kv">
@@ -1009,7 +1048,11 @@ if (typeof document !== 'undefined') (function () {
     const act = el && el.dataset.act;
     if (act) {
       const v = el.dataset.v;
-      if (act === 'fi') { S.f.imp = v; renderControls(); renderList(); }
+      if (act === 'ai') {
+        const it = all().find(x => x.id === el.dataset.id);
+        if (it) openAI(it, el.dataset.ai);
+      }
+      else if (act === 'fi') { S.f.imp = v; renderControls(); renderList(); }
       else if (act === 'fc') { S.f.country = S.f.country === v ? '' : v; renderControls(); renderList(); }
       else if (act === 'fs') { S.f.sector = S.f.sector === v ? '' : v; renderControls(); renderList(); }
       else if (act === 'reset') { S.f = Object.assign(S.f, { country: '', sector: '', imp: '', q: '', range: 'all' }); $('#q').value = ''; renderControls(); renderList(); }
@@ -1075,7 +1118,7 @@ if (typeof document !== 'undefined') (function () {
 
 
   /* ---------- live feed and AI briefing (Phase 2) ---------- */
-  const REPO = 'romitrajput/Global-News-Intelligence', BRANCH = 'main';
+  const REPO = 'romitrajput/QwickSignal', BRANCH = 'main';
   async function getJSON(name) {
     const urls = ['https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + name, name];
     for (const u of urls) {
