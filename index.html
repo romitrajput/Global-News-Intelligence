@@ -201,15 +201,17 @@ ol.steps li{margin:4px 0}
 
   <!-- BRIEFING -->
   <section id="view-brief" class="view" hidden>
-    <h1>Briefing</h1>
+    <h1>Signals</h1>
     <p class="lede" id="briefMeta"></p>
     <div class="livebar" id="liveBar"></div>
     <div id="aiBrief"></div>
 
     <div class="seg" id="rangeSeg" role="group" aria-label="Time range">
       <button data-v="today" aria-pressed="false">Today</button>
+     <!--
       <button data-v="7d" aria-pressed="true">7 days</button>
       <button data-v="all" aria-pressed="false">All</button>
+      -->
     </div>
 
     <div class="tools">
@@ -237,8 +239,10 @@ ol.steps li{margin:4px 0}
 
     <div class="seg" id="exportSeg" role="group" aria-label="Period">
       <button data-v="today" aria-pressed="true">Today</button>
-      <button data-v="7d" aria-pressed="false">7 days</button>
+      <!--
+      <!<button data-v="7d" aria-pressed="false">7 days</button>
       <button data-v="all" aria-pressed="false">All</button>
+      -->
     </div>
     <p class="muted" id="exportCount" style="margin:8px 0 12px"></p>
     <div class="stack">
@@ -274,7 +278,7 @@ ol.steps li{margin:4px 0}
 
 <nav class="tabs" role="tablist" aria-label="Sections">
   <button role="tab" data-tab="inbox" aria-selected="true">Inbox</button>
-  <button role="tab" data-tab="brief" aria-selected="false">Briefing</button>
+  <button role="tab" data-tab="brief" aria-selected="false">Signals</button>
   <button role="tab" data-tab="export" aria-selected="false">Export</button>
 </nav>
 <div id="toast" role="status" aria-live="polite"></div>
