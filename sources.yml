@@ -12,9 +12,9 @@ profile: >
 # Public Telegram channels. Use the name after t.me/ (no @). The channel must have a public web preview:
 # open https://t.me/s/NAME in a browser and check that you can see posts.
 telegram_public:
-  channel: indusmonitor
-  channel: PoliticsZonee
-  channel : DevelopmentNewsIndia
+  - channel: indusmonitor
+  - channel: PoliticsZonee
+  - channel : DevelopmentNewsIndia
 
 # X (Twitter) accounts. The official X API is pay-per-use (about $0.005 per post read, no free tier).
 # Only new posts are read, at most every poll_hours, and never more than max_reads_per_run per run.
