@@ -35,9 +35,9 @@ rss:
 
 # Advanced. Leave alone unless you know why.
 settings:
-  extraction_model: claude-haiku-4-5-20251001   # reads each post: fast and cheap
-  briefing_model: claude-sonnet-5               # writes the daily briefing (Sonnet 5 or Opus 5 both work)
-  max_new_per_run: 40      # most posts analysed in one run
-  max_age_hours: 48        # ignore older posts
-  keep_days: 7             # how long stories stay in the app
-  telegram_pages: 2        # pages of about 20 posts read per channel per run
+  #extraction_model: claude-haiku-4-5-20251001   # reads each post: fast and cheap
+  #briefing_model: claude-sonnet-5               # writes the daily briefing (Sonnet 5 or Opus 5 both work)
+  #max_new_per_run: 40      # most posts analysed in one run
+  #max_age_hours: 48        # ignore older posts
+  #keep_days: 7             # how long stories stay in the app
+  #telegram_pages: 2        # pages of about 20 posts read per channel per run
