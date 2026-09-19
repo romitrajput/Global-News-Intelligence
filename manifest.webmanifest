@@ -1,6 +1,6 @@
 {
-  "name": "Global News Intelligence",
-  "short_name": "Global Intel",
+  "name": "QwickSignal",
+  "short_name": "QwickSignal",
   "description": "Sort news, messages and reports by country, sector and importance. Runs on your phone.",
   "start_url": "./",
   "scope": "./",
