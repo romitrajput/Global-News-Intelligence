@@ -180,7 +180,7 @@ ol.steps li{margin:4px 0}
 <main>
   <!-- INBOX -->
   <section id="view-inbox" class="view">
-    <h1>Inbox</h1>
+    <h1>Upload</h1>
     <p class="lede">Paste a message or add files. Each item is sorted by country, sector and importance on this phone.</p>
     <label class="vh" for="paste">Paste news or messages</label>
     <textarea id="paste" placeholder="Paste news or a Telegram message here. To add several at once, put --- on its own line between them."></textarea>
@@ -192,7 +192,6 @@ ol.steps li{margin:4px 0}
 
     <div class="row" style="margin-top:16px">
       <button id="addBtn" class="btn primary">Add to briefing</button>
-      <button class="btn" data-act="sample">Try sample data</button>
     </div>
 
     <div id="log" class="log" style="margin-top:18px" aria-live="polite"></div>
@@ -207,8 +206,8 @@ ol.steps li{margin:4px 0}
     <div id="aiBrief"></div>
 
     <div class="seg" id="rangeSeg" role="group" aria-label="Time range">
+      <!--
       <button data-v="today" aria-pressed="false">Today</button>
-     <!--
       <button data-v="7d" aria-pressed="true">7 days</button>
       <button data-v="all" aria-pressed="false">All</button>
       -->
@@ -246,7 +245,7 @@ ol.steps li{margin:4px 0}
     </div>
     <p class="muted" id="exportCount" style="margin:8px 0 12px"></p>
     <div class="stack">
-      <button id="pdfBtn" class="btn primary block">Download daily intelligence PDF</button>
+      <button id="pdfBtn" class="btn primary block">Download QwickSignal PDF</button>
       <button id="csvBtn" class="btn block">Download CSV</button>
     </div>
 
@@ -277,7 +276,7 @@ ol.steps li{margin:4px 0}
 </main>
 
 <nav class="tabs" role="tablist" aria-label="Sections">
-  <button role="tab" data-tab="inbox" aria-selected="true">Inbox</button>
+  <button role="tab" data-tab="inbox" aria-selected="true">Upload</button>
   <button role="tab" data-tab="brief" aria-selected="false">Signals</button>
   <button role="tab" data-tab="export" aria-selected="false">Export</button>
 </nav>
