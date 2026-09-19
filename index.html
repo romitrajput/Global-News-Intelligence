@@ -154,9 +154,11 @@ ol.steps li{margin:4px 0}
 .why{margin:0 0 10px;font-size:14px}
 .ai-actions{margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:14px}
 .ai-actions>b{display:block;margin-bottom:8px}
-.ai-buttons{display:flex;gap:10px}
-.ai-buttons .btn.ai-icon{flex:0 0 44px;min-height:44px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:0}
-.ai-buttons .btn.ai-icon svg{width:20px;height:20px}
+.ai-buttons{display:flex;gap:12px;margin-top:8px}
+.btn-ai{display:flex;align-items:center;gap:8px;flex:1;min-height:42px;padding:0 12px;border-radius:8px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;transition:all .2s}
+.btn-ai:active{transform:translateY(1px)}
+.btn-ai:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ai-logo{width:18px;height:18px;flex-shrink:0}
 
 /* tabs and toast */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
