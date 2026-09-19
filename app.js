@@ -795,7 +795,7 @@ if (typeof document !== 'undefined') (function () {
       <div class="where"><span>${flagOf(it.country)} ${esc(it.country)}</span><span class="sect">${esc(it.sector)}${it.subsector ? ' / ' + esc(it.subsector) : ''}</span></div>
       <h3 class="hl">${esc(it.headline)}</h3>
       ${it.summary ? `<p class="sum">${esc(it.summary)}</p>` : ''}
-      <div class="foot"><span class="imp"><i></i>${it.importance}</span>${it.live ? '<span>' + (it.rules ? 'Rule-based' : 'AI summary') + '</span>' : ''}${n > 1 ? `<span>${n} sources</span>` : ''}${rel ? `<span>${rel} related</span>` : ''}<span>${ago(it.addedAt)}</span></div>
+      <div class="foot"><span class="imp" style="display:none"><i></i>${it.importance}</span>${it.live ? '' : ''}${n > 1 ? `<span>${n} sources</span>` : ''}${rel ? `<span>${rel} related</span>` : ''}<span>${ago(it.addedAt)}</span></div>
       ${open ? detailsHTML(it) : ''}
     </article>`;
   }
@@ -849,13 +849,13 @@ Please explain:
       <dl class="kv">
         ${row('Also involved', (it.involved || []).map(c => flagOf(c) + ' ' + esc(c)).join(', '))}
         ${row('Companies', (it.companies || []).map(esc).join(', '))}
-        ${row('Also touches', (it.also || []).map(esc).join(', '))}
-        ${row('Rating signals', (it.signals || []).map(esc).join(', '))}
+        ${row('Also touches', (it.also || []).map(esc).join(', ')) ? '' : ''} <!-- hidden -->
+        ${row('Rating signals', (it.signals || []).map(esc).join(', ')) ? '' : ''} <!-- hidden -->
         ${row('Source date', esc(it.date || dayISO(it.addedAt)))}
         ${row('Sources', (it.sources || []).map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name)).join(', '))}
       </dl>
       ${rel.length ? `<div class="rel"><b>Related stories</b>${rel.map(r => `<button class="link" data-act="goto" data-id="${r.id}">${flagOf(r.country)} ${esc(r.headline)}</button>`).join('')}</div>` : ''}
-      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? 'Sorted by keyword rules from a short excerpt. Live items cannot be edited here.' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
+      ${it.live ? '<p class="muted" style="margin:0;display:none">' + (it.rules ? 'Sorted by keyword rules from a short excerpt. Live items cannot be edited here.' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
         <label>Country<select data-edit="country">${opt(E.COUNTRY_NAMES, it.country)}</select></label>
         <label>Sector<select data-edit="sector">${opt(E.SECTOR_NAMES, it.sector)}</select></label>
         <label>Importance<select data-edit="importance">${opt(E.IMP_ORDER, it.importance)}</select></label>
@@ -898,15 +898,39 @@ Please explain:
     box.innerHTML = html;
   }
 
+
+  function renderCountrySectorSelectors() {
+    const countries = [...new Set(all().map(i => i.country))].sort();
+    const sectors = [...new Set(all().map(i => i.sector))].sort();
+    
+    const countryHtml = `<select id="countryFilter" class="filter-dropdown">
+      <option value="">All Countries</option>
+      ${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}
+    </select>`;
+    
+    const sectorHtml = `<select id="sectorFilter" class="filter-dropdown">
+      <option value="">All Sectors</option>
+      ${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}
+    </select>`;
+    
+    const filterBox = $('#filterDropdowns');
+    if (filterBox) {
+      filterBox.innerHTML = `<div class="filter-selectors">${countryHtml}${sectorHtml}</div>`;
+      document.getElementById('countryFilter')?.addEventListener('change', (e) => {
+        S.f.country = e.target.value;
+        renderControls(); renderList();
+      });
+      document.getElementById('sectorFilter')?.addEventListener('change', (e) => {
+        S.f.sector = e.target.value;
+        renderControls(); renderList();
+      });
+    }
+  }
+
   function renderControls() {
-    // importance bar + chips (counts ignore the importance filter itself)
-    const base = filtered('imp');
-    const counts = {}; E.IMP_ORDER.forEach(l => counts[l] = 0);
-    base.forEach(i => counts[i.importance]++);
-    const total = base.length || 1;
-    $('#impbar').innerHTML = E.IMP_ORDER.map(l => counts[l] ? `<i style="flex:${counts[l]};background:${IMP_VAR[l]}"></i>` : '').join('');
-    $('#impchips').innerHTML = `<button class="chip${!S.f.imp ? ' on' : ''}" data-act="fi" data-v="">All <b>${base.length}</b></button>` +
-      E.IMP_ORDER.map(l => `<button class="chip${S.f.imp === l ? ' on' : ''}" data-act="fi" data-v="${l}"><span class="dot" style="background:${IMP_VAR[l]}"></span>${l} <b>${counts[l]}</b></button>`).join('');
+    // Hidden: live feed info, range selector, and importance chips are now minimized
+    // Only render country/sector dropdowns
+    renderCountrySectorSelectors();
     // country strip
     const cBase = filtered('country'); const cm = new Map();
     cBase.forEach(i => { [i.country].concat(i.involved || []).forEach(c => cm.set(c, (cm.get(c) || 0) + 1)); });

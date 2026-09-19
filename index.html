@@ -161,7 +161,20 @@ ol.steps li{margin:4px 0}
 .btn-ai-img{display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border-radius:50%;border:1.5px solid var(--ink);background:transparent;cursor:pointer;transition:all .2s;overflow:hidden}
 .btn-ai-img:active{transform:translateY(1px)}
 .btn-ai-img:hover{border-color:var(--accent);background:var(--accent)}
-.ai-img{width:36px;height:36px;object-fit:contain}
+.ai-img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 0 2px rgba(255,255,255,0.3))}
+
+/* Filter dropdowns */
+.filter-selectors{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.filter-dropdown{flex:1;min-width:150px;min-height:38px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit}
+.filter-dropdown:hover{border-color:var(--accent)}
+.filter-dropdown:focus{outline:none;border-color:var(--accent);background:var(--ink);color:var(--paper)}
+
+/* Hide live feed info */
+#impbar,#impchips,#rangeSeg,#viewSeg,#exportSeg{display:none}
+.chip{display:none}
+
+/* Hide fields in details */
+.row-signals, .row-also, .rule-based-msg{display:none}
 
 /* tabs and toast */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
