@@ -14,6 +14,7 @@ profile: >
 telegram_public:
   channel: indusmonitor
   channel: PoliticsZonee
+  channel : DevelopmentNewsIndia
 
 # X (Twitter) accounts. The official X API is pay-per-use (about $0.005 per post read, no free tier).
 # Only new posts are read, at most every poll_hours, and never more than max_reads_per_run per run.
