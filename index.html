@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Global News Intelligence</title>
+<meta name="description" content="Sort news, messages and reports by country, sector and importance. Runs entirely on your phone.">
+<meta name="theme-color" content="#0E2238" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1826" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E7ECEF; --surface:#F7F9FA; --ink:#0E2238; --ink2:#4A5D70; --line:#C6D2DA;
+  --head:#0E2238; --head-ink:#F2F6F8;
+  --accent:#17707A; --accent-ink:#FFFFFF;
+  --crit:#C8321F; --high:#C97A0E; --med:#4F7CA3; --low:#8795A2;
+  --font:'Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#08121D; --surface:#0F1E2D; --ink:#E6EEF4; --ink2:#9CAEBD; --line:#1F3446;
+    --head:#0B1826; --head-ink:#E6EEF4;
+    --accent:#4FB6C0; --accent-ink:#04202A;
+    --crit:#F0604D; --high:#EDA038; --med:#6FA3CE; --low:#7C8A97;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.45 var(--font);
+  padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+[hidden]{display:none!important}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:var(--head);color:var(--head-ink);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.02em}
+.brand svg{flex:none}
+.top .right{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;opacity:.9}
+.tiny{min-height:32px;padding:0 12px;border-radius:8px;border:1.5px solid currentColor;background:transparent;font-weight:600;font-size:13px}
+
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:26px;line-height:1.15;font-weight:800;letter-spacing:-.025em;margin:4px 0 4px}
+h2{font-size:18px;font-weight:800;letter-spacing:-.01em;margin:26px 0 8px}
+.lede{margin:0 0 16px;color:var(--ink2);font-size:15px;max-width:60ch}
+.muted{color:var(--ink2);font-size:14px}
+
+/* buttons and inputs */
+.btn{min-height:46px;padding:0 18px;border-radius:10px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-weight:600;font-size:15px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{border-color:var(--crit);color:var(--crit)}
+.btn.small{min-height:38px;font-size:14px;margin-top:12px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5}
+.btn:active{transform:translateY(1px)}
+textarea{width:100%;min-height:150px;padding:12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);resize:vertical;line-height:1.45}
+input[type=search]{width:100%;min-height:44px;padding:0 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface)}
+.check{display:flex;align-items:center;gap:10px;margin:10px 0 14px;font-size:14.5px;color:var(--ink2)}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .btn{flex:1 1 150px}
+.pick{display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;margin:12px 0 0;border:1.5px dashed var(--ink2);border-radius:10px;font-weight:600;cursor:pointer;text-align:center;padding:0 12px}
+.pick small{font-weight:400;color:var(--ink2)}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 4px 4px 10px;font-size:13.5px;max-width:100%}
+.fchip button{border:0;background:transparent;font-size:20px;line-height:1;min-width:32px;min-height:32px;color:var(--ink2)}
+.stack>*+*{margin-top:12px}
+
+/* segmented + chips */
+.seg{display:flex;border:1.5px solid var(--ink);border-radius:10px;overflow:hidden}
+.seg button{flex:1;min-height:40px;border:0;background:transparent;font-weight:600;font-size:14px;cursor:pointer}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.strip{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 6px;margin:0 -16px;scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:36px;padding:0 12px;border-radius:18px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip b{font-weight:800;font-variant-numeric:tabular-nums;opacity:.75}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .dot{width:9px;height:9px;border-radius:50%}
+.impbar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line);margin:8px 0 14px}
+.impbar i{display:block;min-width:4px}
+.tools{display:grid;gap:4px;margin:12px 0 2px}
+
+/* entries */
+.grp{display:flex;align-items:center;gap:8px;margin:24px 0 10px;font-size:16px}
+.grp .sw{width:10px;height:10px;flex:none}
+.grp .n{margin-left:auto;font-weight:600;font-size:13px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.entry{--c:var(--low);background:var(--surface);border-left:5px solid var(--c);border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 10px;cursor:pointer}
+.entry.imp-critical{--c:var(--crit)} .entry.imp-high{--c:var(--high)} .entry.imp-medium{--c:var(--med)} .entry.imp-low{--c:var(--low)}
+.where{display:flex;flex-wrap:wrap;gap:2px 0;font-size:13px;font-weight:600;color:var(--ink2)}
+.where .sect{margin-left:10px;padding-left:10px;border-left:1.5px solid var(--line)}
+.hl{font-size:17px;line-height:1.28;font-weight:800;letter-spacing:-.01em;margin:5px 0 6px}
+.sum{margin:0;font-size:14.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.entry.open .sum{display:block;-webkit-line-clamp:unset}
+.foot{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:9px;font-size:12.5px;color:var(--ink2);font-weight:600}
+.imp{display:inline-flex;align-items:center;gap:6px;color:var(--c)}
+.imp i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.details{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);cursor:default}
+.facts{margin:0 0 10px;padding-left:18px;font-size:14px}
+.facts li{margin:3px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 12px;font-size:13.5px}
+.kv dt{color:var(--ink2);font-weight:600}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.rel{margin:0 0 12px;font-size:13.5px}
+.rel b{display:block;margin-bottom:4px}
+.link{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 0;border-top:1px solid var(--line);color:var(--accent);font-weight:600;font-size:14px;cursor:pointer}
+.edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.edit label{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.edit select{min-height:42px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);padding:0 8px}
+.empty{padding:28px 4px;text-align:left}
+.empty p{margin:0 0 10px;max-width:46ch}
+
+/* log */
+.log p{margin:6px 0;padding-left:12px;border-left:4px solid var(--low);font-size:14px}
+.log p.ok{border-color:var(--accent)} .log p.warn{border-color:var(--high)} .log p.err{border-color:var(--crit)}
+
+/* cards for export tab */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:10px}
+.panel p{margin:0 0 8px}
+.panel p:last-child{margin-bottom:0}
+ol.steps{margin:6px 0 0;padding-left:20px;font-size:14.5px}
+ol.steps li{margin:4px 0}
+
+
+/* live feed and AI briefing */
+.livebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-6px 0 14px;font-size:13px;color:var(--ink2);font-weight:600}
+.link.inline{display:inline;width:auto;border:0;padding:8px 0;font-size:13px}
+.ai{background:var(--surface);border:1.5px solid var(--ink);border-radius:10px;padding:14px 16px;margin:0 0 18px}
+.aihead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.aihead h2{margin:0;font-size:18px}
+.aihead span{font-size:12.5px;color:var(--ink2);font-weight:600}
+.ai .ov{margin:8px 0 4px;font-size:15px;line-height:1.55}
+.ai h3{font-size:14px;font-weight:800;margin:16px 0 6px}
+.ai ul{list-style:none;margin:0;padding:0}
+.tops li{padding:8px 0;border-top:1px solid var(--line)}
+.tops .link{border:0;padding:0 0 2px;font-size:15px;color:var(--ink);font-weight:800}
+.tops span{display:block;font-size:13.5px;color:var(--ink2)}
+.ai summary{cursor:pointer;font-weight:800;font-size:14px;margin-top:14px;min-height:36px;display:flex;align-items:center;color:var(--accent)}
+.themes li,.chains li{padding:10px 0;border-top:1px solid var(--line)}
+.themes p{margin:4px 0 0;font-size:14px}
+.themes .next{color:var(--ink2);font-size:13px}
+.conf{font-size:12px;font-weight:600;color:var(--ink2);margin-left:6px}
+.chain{list-style:none;margin:8px 0 0 6px;padding:0 0 0 14px;border-left:2px solid var(--accent)}
+.chain li{position:relative;padding:3px 0;border:0;font-size:14px}
+.chain li::before{content:"";position:absolute;left:-19px;top:11px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.watch li{padding:4px 0;font-size:14px}
+.why{margin:0 0 10px;font-size:14px}
+
+/* tabs and toast */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;min-height:58px;border:0;background:transparent;font-weight:600;font-size:14px;color:var(--ink2);cursor:pointer;position:relative}
+.tabs button[aria-selected=true]{color:var(--accent)}
+.tabs button[aria-selected=true]::before{content:"";position:absolute;left:22%;right:22%;top:0;height:3px;background:var(--accent);border-radius:0 0 3px 3px}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;max-width:520px;margin:0 auto;background:var(--ink);color:var(--paper);padding:12px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:none}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="16" cy="16" r="12"/><ellipse cx="16" cy="16" rx="5" ry="12"/><path d="M4 16h24M6 9.5h20M6 22.5h20"/>
+      <circle cx="22.5" cy="10.5" r="3.2" fill="#F0604D" stroke="none"/>
+    </svg>
+    <span>Global Intelligence</span>
+  </div>
+  <div class="right"><span id="today"></span><button class="tiny" data-install hidden>Install</button></div>
+</header>
+
+<main>
+  <!-- INBOX -->
+  <section id="view-inbox" class="view">
+    <h1>Inbox</h1>
+    <p class="lede">Paste a message or add files. Each item is sorted by country, sector and importance on this phone.</p>
+    <label class="vh" for="paste">Paste news or messages</label>
+    <textarea id="paste" placeholder="Paste news or a Telegram message here. To add several at once, put --- on its own line between them."></textarea>
+    <label class="check"><input type="checkbox" id="byPara"> Treat each paragraph as a separate message</label>
+
+    <input type="file" id="files" multiple hidden accept=".pdf,.txt,.csv,.tsv,.md,application/pdf,text/plain,text/csv">
+    <label class="pick" for="files">Choose files <small>PDF, TXT or CSV</small></label>
+    <div id="fileChips" class="fchips"></div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="addBtn" class="btn primary">Add to briefing</button>
+      <button class="btn" data-act="sample">Try sample data</button>
+    </div>
+
+    <div id="log" class="log" style="margin-top:18px" aria-live="polite"></div>
+    <div id="fresh"></div>
+  </section>
+
+  <!-- BRIEFING -->
+  <section id="view-brief" class="view" hidden>
+    <h1>Briefing</h1>
+    <p class="lede" id="briefMeta"></p>
+    <div class="livebar" id="liveBar"></div>
+    <div id="aiBrief"></div>
+
+    <div class="seg" id="rangeSeg" role="group" aria-label="Time range">
+      <button data-v="today" aria-pressed="false">Today</button>
+      <button data-v="7d" aria-pressed="true">7 days</button>
+      <button data-v="all" aria-pressed="false">All</button>
+    </div>
+
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search headlines, companies, text" aria-label="Search">
+      <div class="strip" id="impchips"></div>
+      <div class="strip" id="countries" aria-label="Countries"></div>
+      <div class="strip" id="sectors" aria-label="Sectors"></div>
+    </div>
+    <div class="impbar" id="impbar" aria-hidden="true"></div>
+
+    <div class="seg" id="viewSeg" role="group" aria-label="Group by">
+      <button data-v="priority" aria-pressed="true">By priority</button>
+      <button data-v="country" aria-pressed="false">By country</button>
+      <button data-v="sector" aria-pressed="false">By sector</button>
+    </div>
+    <p style="margin:10px 0 0" id="hasFilter" hidden><button class="link" style="border:0;width:auto;padding:4px 0" data-act="reset">Clear filters</button></p>
+
+    <div id="list"></div>
+  </section>
+
+  <!-- EXPORT -->
+  <section id="view-export" class="view" hidden>
+    <h1>Export</h1>
+    <p class="lede">Save a report or the raw table. Files go to your phone's Downloads.</p>
+
+    <div class="seg" id="exportSeg" role="group" aria-label="Period">
+      <button data-v="today" aria-pressed="true">Today</button>
+      <button data-v="7d" aria-pressed="false">7 days</button>
+      <button data-v="all" aria-pressed="false">All</button>
+    </div>
+    <p class="muted" id="exportCount" style="margin:8px 0 12px"></p>
+    <div class="stack">
+      <button id="pdfBtn" class="btn primary block">Download daily intelligence PDF</button>
+      <button id="csvBtn" class="btn block">Download CSV</button>
+    </div>
+
+    <h2>Install on your phone</h2>
+    <div class="panel" id="installCard">
+      <p>Install it so it opens like an app, with no browser bar.</p>
+      <button class="btn small" data-install hidden>Install app</button>
+      <ol class="steps">
+        <li>In Chrome, tap the three-dot menu.</li>
+        <li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li>
+        <li>After installing, sharing text from Telegram may list this app as a target.</li>
+      </ol>
+    </div>
+
+    <h2>On this phone</h2>
+    <div class="panel">
+      <p id="storeInfo"></p>
+      <button id="clearBtn" class="btn small danger">Clear all data</button>
+    </div>
+
+    <h2>How items are sorted</h2>
+    <div class="panel">
+      <p>Items you paste or upload are sorted by keyword rules on your phone, not AI, so tap an item to correct it. Live stories and the AI briefing come from the Phase 2 pipeline, which reads your Telegram, X and RSS sources and summarises them with Claude.</p>
+      <p>Duplicates are merged into one item that lists every source. Items that cover the same story are linked as related.</p>
+      <p>PDF text reading and PDF export load a small library from the internet the first time, then work offline.</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button role="tab" data-tab="inbox" aria-selected="true">Inbox</button>
+  <button role="tab" data-tab="brief" aria-selected="false">Briefing</button>
+  <button role="tab" data-tab="export" aria-selected="false">Export</button>
+</nav>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
