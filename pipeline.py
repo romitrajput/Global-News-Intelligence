@@ -56,15 +56,15 @@ IMPORTANCE = ["Critical", "High", "Medium", "Low"]
 RANK = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
 
 DEFAULTS = {
-    "extraction_model": "claude-haiku-4-5-20251001",
-    "briefing_model": "claude-sonnet-5",
-    "max_new_per_run": 40,    # posts sent to the AI per run; the rest wait for the next run
+    #"extraction_model": "claude-haiku-4-5-20251001",
+    #"briefing_model": "claude-sonnet-5",
+    "max_new_per_run": 100,    # posts sent to the AI per run; the rest wait for the next run
     "max_age_hours": 48,      # ignore posts older than this
     "keep_days": 7,           # how long items stay in feed.json
     "max_items": 600,
     "min_chars": 60,          # skip very short posts
-    "batch_size": 8,
-    "telegram_pages": 2,      # pages of ~20 posts fetched per public channel
+    #"batch_size": 8,
+    "telegram_pages": 5,      # pages of ~20 posts fetched per public channel
 }
 
 
@@ -734,7 +734,7 @@ def first_headline(text: str) -> str:
         if len(line) > 100 and 25 <= len(first) < len(line):
             line = first
         line = line.rstrip(". ")
-        return line if len(line) <= 140 else line[:139].rsplit(" ", 1)[0] + "\u2026"
+        return line if len(line) <= 250 else line[:249].rsplit(" ", 1)[0] + "\u2026"
     return (re.sub(r"\s+", " ", EMOJI.sub("", text)).strip() or "Untitled post")[:140]
 
 
