@@ -795,7 +795,7 @@ if (typeof document !== 'undefined') (function () {
       <div class="where"><span>${flagOf(it.country)} ${esc(it.country)}</span><span class="sect">${esc(it.sector)}${it.subsector ? ' / ' + esc(it.subsector) : ''}</span></div>
       <h3 class="hl">${esc(it.headline)}</h3>
       ${it.summary ? `<p class="sum">${esc(it.summary)}</p>` : ''}
-      <div class="foot">``''${n > 1 ? `<span>${n} sources</span>` : ''}${rel ? `<span>${rel} related</span>` : ''}<span>${ago(it.addedAt)}</span></div>
+      <div class="foot">${n > 1 ? `<span>${n} sources</span>` : ''}${rel ? `<span>${rel} related</span>` : ''}<span>${ago(it.addedAt)}</span></div>
       ${open ? detailsHTML(it) : ''}
     </article>`;
   }
@@ -810,13 +810,13 @@ if (typeof document !== 'undefined') (function () {
       <dl class="kv">
         ${row('Also involved', (it.involved || []).map(c => flagOf(c) + ' ' + esc(c)).join(', '))}
         ${row('Companies', (it.companies || []).map(esc).join(', '))}
-        `` // Also touches hidden
-        `` // Rating signals hidden
+        
+        
         ${row('Source date', esc(it.date || dayISO(it.addedAt)))}
         ${row('Sources', (it.sources || []).map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name)).join(', '))}
       </dl>
       ${rel.length ? `<div class="rel"><b>Related stories</b>${rel.map(r => `<button class="link" data-act="goto" data-id="${r.id}">${flagOf(r.country)} ${esc(r.headline)}</button>`).join('')}</div>` : ''}
-      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? 'Sorted by keyword rules from a short excerpt. Live items cannot be edited here.' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
+      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? '' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
         <label>Country<select data-edit="country">${opt(E.COUNTRY_NAMES, it.country)}</select></label>
         <label>Sector<select data-edit="sector">${opt(E.SECTOR_NAMES, it.sector)}</select></label>
         <label>Importance<select data-edit="importance">${opt(E.IMP_ORDER, it.importance)}</select></label>
@@ -860,15 +860,28 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function renderControls() {
-    // Render country and sector filters
-    const fb = $('#filterBox');
-    if (fb && S.items.length + S.live.length > 0) {
+    // Render country and sector filter dropdowns
+    const filterBox = $('#filterBox');
+    if (filterBox) {
       const countries = [...new Set(all().map(i => i.country))].sort();
       const sectors = [...new Set(all().map(i => i.sector))].sort();
-      fb.innerHTML = `<div class="filter-group"><select id="countryFilter" class="filter-dropdown"><option value="">All Countries</option>${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}</select><select id="sectorFilter" class="filter-dropdown"><option value="">All Sectors</option>${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
-      document.getElementById('countryFilter')?.addEventListener('change', (e) => { S.f.country = e.target.value; renderList(); });
-      document.getElementById('sectorFilter')?.addEventListener('change', (e) => { S.f.sector = e.target.value; renderList(); });
+      filterBox.innerHTML = `
+        <div class="filter-group">
+          <select id="countryFilter" class="filter-dropdown">
+            <option value="">All Countries</option>
+            ${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+          <select id="sectorFilter" class="filter-dropdown">
+            <option value="">All Sectors</option>
+            ${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      `;
+      document.getElementById('countryFilter')?.addEventListener('change', e => { S.f.country = e.target.value; renderControls(); renderList(); });
+      document.getElementById('sectorFilter')?.addEventListener('change', e => { S.f.sector = e.target.value; renderControls(); renderList(); });
     }
+
+
     // importance bar + chips (counts ignore the importance filter itself)
     const base = filtered('imp');
     const counts = {}; E.IMP_ORDER.forEach(l => counts[l] = 0);
@@ -1142,9 +1155,7 @@ if (typeof document !== 'undefined') (function () {
   }
   function renderLiveBar() {
     const m = S.liveMeta;
-    $('#liveBar').innerHTML = (m
-      ? `<span>${S.live.length} live stories${m.at ? ', updated ' + ago(m.at) : ''}${S.live.some(i => i.rules) ? ', free mode (no AI)' : ''}${m.cached ? ' (saved copy, you are offline)' : ''}</span>`
-      : '<span>Live feed not connected yet</span>') + '<button class="link inline" data-act="refresh">Refresh</button>';
+    $('#liveBar').innerHTML = '<button class="link inline refresh-icon" data-act="refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>';
   }
   function renderBrief() {
     const b = S.brief, box = $('#aiBrief');

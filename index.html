@@ -153,44 +153,17 @@ ol.steps li{margin:4px 0}
 .watch li{padding:4px 0;font-size:14px}
 .why{margin:0 0 10px;font-size:14px}
 
-
 /* Filter dropdowns */
-#filterBox{margin:8px 0 12px;padding:0 14px}
+#filterBox{padding:12px 14px 0;margin:0}
 .filter-group{display:flex;gap:10px;flex-wrap:wrap}
-.filter-dropdown{flex:1;min-width:130px;min-height:36px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit}
+.filter-dropdown{flex:1;min-width:140px;min-height:38px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit;transition:all .2s}
 .filter-dropdown:hover{border-color:var(--accent)}
 .filter-dropdown:focus{outline:none;border-color:var(--accent)}
 
-/* Refresh button icon */
-.refresh-btn{border:none;background:transparent;padding:4px;margin:0;cursor:pointer;opacity:0.8;transition:opacity .2s;display:inline-flex}
-.refresh-btn:hover{opacity:1}
-.refresh-btn svg{width:18px;height:18px}
-
-/* Hide filters */
-#impbar,#impchips,#rangeSeg,#viewSeg,#exportSeg,.chip{display:none !important}
-
-
-/* Filter dropdowns */
-#filterBox{margin:8px 0;padding:0 14px}
-.filter-group{display:flex;gap:10px;flex-wrap:wrap}
-.filter-dropdown{flex:1;min-width:130px;min-height:36px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit;transition:border-color .2s}
-.filter-dropdown:hover{border-color:var(--accent)}
-.filter-dropdown:focus{outline:none;border-color:var(--accent)}
-
-/* Refresh button  */
-.refresh-btn{border:none;background:transparent;padding:4px;margin:0 0 0 8px;cursor:pointer;opacity:0.8;transition:opacity .2s;display:inline-flex;align-items:center}
-.refresh-btn:hover{opacity:1}
-
-/* Hide filter chips and controls */
-#impbar,#impchips,#rangeSeg,#viewSeg,#exportSeg,.chip{display:none !important}
-
-
-/* Live bar / Refresh button */
-#liveBar{display:flex;align-items:center;justify-content:flex-end;padding:0 14px;min-height:24px}
-#liveBar span{display:none} /* Hide the live stories info text */
-#liveBar .refresh-btn{margin:0;opacity:0.7}
-#liveBar .refresh-btn:hover{opacity:1}
-#liveBar .refresh-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none}
+/* Refresh icon button */
+.refresh-icon{padding:4px 8px !important;margin:0 !important}
+.refresh-icon svg{vertical-align:middle;opacity:0.7;transition:opacity .2s}
+.refresh-icon:hover svg{opacity:1}
 
 /* tabs and toast */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
