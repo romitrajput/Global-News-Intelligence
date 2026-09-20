@@ -1127,7 +1127,7 @@ Please explain:
 
 
   /* ---------- live feed and AI briefing (Phase 2) ---------- */
-  const REPO = 'romitrajput/Global-News-Intelligence', BRANCH = 'main';
+  const REPO = 'romitrajput/QwickSignal', BRANCH = 'main';
   async function getJSON(name) {
     const urls = ['https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + name, name];
     for (const u of urls) {
@@ -1169,7 +1169,7 @@ Please explain:
   const writeCache = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full */ } };
 
   async function loadLive(manual) {
-    if (manual) $('#liveBar').querySelector('span').textContent = 'Refreshing\u2026';
+    if (manual) { const rb = $('#liveBar').querySelector('button'); if (rb) rb.textContent = 'Refreshing\u2026'; }
     let [feed, brief] = await Promise.all([getJSON('feed.json'), getJSON('briefing.json')]);
     let cached = false;
     if (feed && Array.isArray(feed.items)) writeCache('gni-feed', feed);
