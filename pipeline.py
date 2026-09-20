@@ -63,7 +63,7 @@ DEFAULTS = {
     "keep_days": 7,           # how long items stay in feed.json
     "max_items": 600,
     "min_chars": 60,          # skip very short posts
-    #"batch_size": 8,
+    "batch_size": 20,
     "telegram_pages": 5,      # pages of ~20 posts fetched per public channel
 }
 
