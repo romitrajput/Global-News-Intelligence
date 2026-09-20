@@ -393,7 +393,7 @@ const Engine = (function () {
     opts = opts || {};
     const isPDF = !!opts.pdf;
     const text = (isPDF ? reflow(raw) : raw).replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim();
-    const headline = cleanLine(opts.headline || '') ? clip(cleanLine(opts.headline), 350) : pickHeadline(raw.replace(/\r/g, ''), opts.fallbackTitle);
+    const headline = cleanLine(opts.headline || '') ? clip(cleanLine(opts.headline), 400) : pickHeadline(raw.replace(/\r/g, ''), opts.fallbackTitle);
     const head = (headline + '\n' + text.slice(0, 300));
     const companies = findCompanies(text);
     const c = classifyCountry(text, head, companies, headline);
@@ -552,6 +552,7 @@ if (typeof document !== 'undefined') (function () {
     items: [],
     live: [],
     liveMeta: null,
+    liveSig: '',
     brief: null,
     lastLive: 0,
     files: [],
@@ -853,7 +854,7 @@ Please explain:
         ${row('Sources', (it.sources || []).map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name)).join(', '))}
       </dl>
       ${rel.length ? `<div class="rel"><b>Related stories</b>${rel.map(r => `<button class="link" data-act="goto" data-id="${r.id}">${flagOf(r.country)} ${esc(r.headline)}</button>`).join('')}</div>` : ''}
-      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? 'Sorted by keyword rules from a short excerpt. Live items cannot be edited here.' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
+      ${it.live ? '' : `<div class="edit">
         <label>Country<select data-edit="country">${opt(E.COUNTRY_NAMES, it.country)}</select></label>
         <label>Sector<select data-edit="sector">${opt(E.SECTOR_NAMES, it.sector)}</select></label>
         <label>Importance<select data-edit="importance">${opt(E.IMP_ORDER, it.importance)}</select></label>
@@ -896,17 +897,36 @@ Please explain:
     box.innerHTML = html;
   }
 
-  function renderControls() {
-    // Render country/sector filter dropdowns
-    const fb = $('#filterBox');
-    if (fb && all().length > 0) {
-      const countries = [...new Set(all().map(i => i.country))].sort();
-      const sectors = [...new Set(all().map(i => i.sector))].sort();
-      fb.innerHTML = `<div class="filter-group"><select id="countryFilter" class="filter-dropdown"><option value="">All Countries</option>${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}</select><select id="sectorFilter" class="filter-dropdown"><option value="">All Sectors</option>${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
-      document.getElementById('countryFilter')?.addEventListener('change', e => { S.f.country = e.target.value; renderControls(); renderList(); });
-      document.getElementById('sectorFilter')?.addEventListener('change', e => { S.f.sector = e.target.value; renderControls(); renderList(); });
+  /* ---------- country and sector drop-downs ---------- */
+  function ensureFilterSelects() {
+    const box = $('#filterBox');
+    if (box && !$('#countryFilter')) {   // safety net if an older index.html is still cached
+      box.innerHTML = '<select id="countryFilter" class="filter-dropdown" aria-label="Filter by country"></select>' +
+        '<select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>';
     }
+  }
+  function fillSelect(sel, allLabel, counts, current) {
+    const entries = [...counts.entries()];
+    if (current && !counts.has(current)) entries.push([current, 0]);   // keep the chosen value visible
+    entries.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    const html = `<option value="">${allLabel}</option>` + entries.map(([v, n]) => `<option value="${esc(v)}">${esc(v)} (${n})</option>`).join('');
+    if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
+    sel.value = current || '';
+    sel.classList.toggle('on', !!current);
+  }
+  function syncFilterDropdowns() {
+    ensureFilterSelects();
+    const cSel = $('#countryFilter'), sSel = $('#sectorFilter');
+    if (!cSel || !sSel) return;
+    const cm = new Map(), sm = new Map();
+    filtered('country').forEach(i => new Set([i.country].concat(i.involved || [])).forEach(c => cm.set(c, (cm.get(c) || 0) + 1)));
+    filtered('sector').forEach(i => sm.set(i.sector, (sm.get(i.sector) || 0) + 1));
+    fillSelect(cSel, 'All Countries', cm, S.f.country);
+    fillSelect(sSel, 'All Sectors', sm, S.f.sector);
+  }
 
+  function renderControls() {
+    syncFilterDropdowns();
 
     // importance bar + chips (counts ignore the importance filter itself)
     const base = filtered('imp');
@@ -1116,6 +1136,12 @@ Please explain:
     S.files.push(...e.target.files); e.target.value = ''; renderFiles();
   });
   $('#addBtn').addEventListener('click', runIngest);
+  document.addEventListener('change', ev => {
+    const t = ev.target;
+    if (!t || !t.id) return;
+    if (t.id === 'countryFilter') { S.f.country = t.value; renderControls(); renderList(); }
+    else if (t.id === 'sectorFilter') { S.f.sector = t.value; renderControls(); renderList(); }
+  });
   $('#q').addEventListener('input', e => { S.f.q = e.target.value; renderControls(); renderList(); });
   $('#pdfBtn').addEventListener('click', exportPDF);
   $('#csvBtn').addEventListener('click', exportCSV);
@@ -1168,24 +1194,44 @@ Please explain:
   const readCache = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
   const writeCache = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage full */ } };
 
+  let liveBusy = false;
   async function loadLive(manual) {
-    if (manual) { const rb = $('#liveBar').querySelector('button'); if (rb) rb.textContent = 'Refreshing\u2026'; }
-    let [feed, brief] = await Promise.all([getJSON('feed.json'), getJSON('briefing.json')]);
-    let cached = false;
-    if (feed && Array.isArray(feed.items)) writeCache('gni-feed', feed);
-    else { feed = readCache('gni-feed'); cached = !!feed; }
-    if (brief && brief.overview) writeCache('gni-brief', brief); else brief = readCache('gni-brief');
-    S.live = feed && Array.isArray(feed.items) ? feed.items.map(mapLive) : [];
-    S.liveMeta = feed ? { at: Date.parse(feed.generated_at) || 0, cached } : null;
-    S.brief = brief;
-    S.lastLive = Date.now();
-    renderLiveBar(manual);
-    renderAll(); renderBrief();
-    if (manual) toast(S.liveMeta ? S.live.length + ' live stories loaded.' : 'The live feed is not set up yet.');
+    if (liveBusy) return;                     // a load is already running, ignore extra taps
+    liveBusy = true;
+    $('#liveBar').classList.add('busy');      // makes the icon spin
+    try {
+      const prevIds = new Set(S.live.map(i => i.id)), prevSig = S.liveSig;
+      let [feed, brief] = await Promise.all([getJSON('feed.json'), getJSON('briefing.json')]);
+      let cached = false;
+      if (feed && Array.isArray(feed.items)) writeCache('gni-feed', feed);
+      else { feed = readCache('gni-feed'); cached = !!feed; }
+      if (brief && brief.overview) writeCache('gni-brief', brief); else brief = readCache('gni-brief');
+      const items = feed && Array.isArray(feed.items) ? feed.items : [];
+      const sig = items.map(i => i.id + '|' + (i.updated || '')).join(',');
+      S.lastLive = Date.now();
+      if (!manual && S.liveMeta && sig === prevSig) return;   // silent check, nothing new: leave the screen alone
+      S.live = items.map(mapLive);
+      S.liveSig = sig;
+      S.liveMeta = feed ? { at: Date.parse(feed.generated_at) || 0, cached } : null;
+      S.brief = brief;
+      renderAll(); renderBrief();
+      if (manual) {
+        const fresh = S.live.filter(i => !prevIds.has(i.id)).length;
+        toast(!S.liveMeta ? 'The live feed is not set up yet.'
+          : cached ? 'No connection. Showing the saved copy (' + S.live.length + ' stories).'
+          : fresh && prevIds.size ? fresh + (fresh === 1 ? ' new story.' : ' new stories.')
+          : 'Up to date. ' + S.live.length + ' live stories.');
+      }
+    } finally {
+      liveBusy = false;
+      $('#liveBar').classList.remove('busy');
+    }
   }
   function renderLiveBar() {
-    const m = S.liveMeta;
-    $('#liveBar').innerHTML = '<button class="link inline" data-act="refresh">Refresh</button>';
+    $('#liveBar').innerHTML = '<button class="iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' +
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>' +
+      '<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>';
   }
   function renderBrief() {
     const b = S.brief, box = $('#aiBrief');
@@ -1209,7 +1255,9 @@ Please explain:
       </details>` : ''}
     </section>`;
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - S.lastLive > 5 * 60e3) loadLive(); });
+  const AUTO_REFRESH_MS = 5 * 60e3;   // the pipeline publishes every 15 minutes; checking every 5 keeps the screen close behind it
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - S.lastLive >= AUTO_REFRESH_MS) loadLive(); });
+  setInterval(() => { if (!document.hidden && Date.now() - S.lastLive >= AUTO_REFRESH_MS) loadLive(); }, 60e3);
 
   /* ---------- install and share ---------- */
   let deferredInstall = null;

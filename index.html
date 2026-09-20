@@ -158,15 +158,26 @@ ol.steps li{margin:4px 0}
 .ai-actions>b{display:block;margin-bottom:8px}
 .ai-buttons{display:flex;gap:12px;justify-content:flex-start}
 .btn-ai{flex:1;min-width:100px;min-height:38px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
-.btn-ai:hover{border-color:var(--accent);background:var(--accent);color:var(--paper)}
+@media (hover:hover){.btn-ai:hover{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}}
 .btn-ai:active{transform:translateY(1px)}
 
-/* Filter dropdowns */
-#filterBox{padding:12px 14px 0;margin:0}
-.filter-group{display:flex;gap:10px;flex-wrap:wrap}
-.filter-dropdown{flex:1;min-width:140px;min-height:36px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer;font-family:inherit;transition:all .2s}
-.filter-dropdown:hover{border-color:var(--accent)}
-.filter-dropdown:focus{outline:none;border-color:var(--accent)}
+/* Country and sector drop-downs: one row, two equal halves, same look as the search box */
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 4px}
+.filter-dropdown{width:100%;min-width:0;min-height:44px;padding:0 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14.5px;font-weight:600;text-overflow:ellipsis;cursor:pointer}
+.filter-dropdown.on{border-color:var(--accent)}
+.filter-dropdown:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* Screen title with the refresh icon on the same line */
+.viewhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.viewhead .livebar{margin:0}
+.iconbtn{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);color:var(--accent);cursor:pointer}
+.iconbtn:active{transform:scale(.94)}
+.livebar.busy .iconbtn{pointer-events:none}
+.livebar.busy .iconbtn svg{animation:qsspin .9s linear infinite}
+@keyframes qsspin{to{transform:rotate(360deg)}}
+
+/* Links inside an opened story were dark blue on the dark theme */
+.details a{color:var(--accent);font-weight:600}
 
 /* tabs and toast */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
@@ -215,12 +226,14 @@ ol.steps li{margin:4px 0}
 
   <!-- BRIEFING -->
   <section id="view-brief" class="view" hidden>
-    <h1>Signals</h1>
+    <div class="viewhead">
+      <h1>Signals</h1>
+      <div class="livebar" id="liveBar"></div>
+    </div>
     <p class="lede" id="briefMeta"></p>
-    <div class="livebar" id="liveBar"></div>
     <div id="aiBrief"></div>
 
-    <div class="seg" id="rangeSeg" role="group" aria-label="Time range">
+    <div class="seg" id="rangeSeg" role="group" aria-label="Time range" hidden>
       <!--
       <button data-v="today" aria-pressed="false">Today</button>
       <button data-v="7d" aria-pressed="true">7 days</button>
@@ -231,9 +244,12 @@ ol.steps li{margin:4px 0}
     <div class="tools">
       <input type="search" id="q" placeholder="Search headlines, companies, text" aria-label="Search">
       <div class="strip" id="impchips"></div>
-      <div id="filterBox"></div>
-      <div class="strip" id="countries" aria-label="Countries"></div>
-      <div class="strip" id="sectors" aria-label="Sectors"></div>
+      <div id="filterBox" class="filters">
+        <select id="countryFilter" class="filter-dropdown" aria-label="Filter by country"></select>
+        <select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>
+      </div>
+      <div class="strip" id="countries" aria-label="Countries" hidden></div>
+      <div class="strip" id="sectors" aria-label="Sectors" hidden></div>
     </div>
     <div class="impbar" id="impbar" aria-hidden="true"></div>
 
@@ -252,7 +268,7 @@ ol.steps li{margin:4px 0}
     <h1>Export</h1>
     <p class="lede">Save a report or the raw table. Files go to your phone's Downloads.</p>
 
-    <div class="seg" id="exportSeg" role="group" aria-label="Period">
+    <div class="seg" id="exportSeg" role="group" aria-label="Period" hidden>
      <!-- <button data-v="today" aria-pressed="true">Today</button> -->
       <!--
       <!<button data-v="7d" aria-pressed="false">7 days</button>

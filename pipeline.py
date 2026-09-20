@@ -721,8 +721,12 @@ def process_batch(results, feed_items, index, now, stats) -> list[dict]:
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200d]")
 
 
+HEADLINE_MAX = 400   # free mode: longest headline kept, in characters
+
+
 def first_headline(text: str) -> str:
-    """Free mode: use the first meaningful line or sentence of a post as its headline."""
+    """Free mode: use the first meaningful line of a post as its headline, up to HEADLINE_MAX characters.
+    A longer line is cut after the last full sentence that fits, or at a word with an ellipsis."""
     for line in text.split("\n"):
         line = re.sub(r"https?://\S+", "", EMOJI.sub("", line))
         line = re.sub(r"^[\s\-\u2013\u2014\u2022*#>|]+", "", line)
@@ -730,12 +734,15 @@ def first_headline(text: str) -> str:
         line = re.sub(r"[*_`~]+", "", line).strip()
         if len(line) < 18:
             continue
-        first = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])", line)[0]
-        if len(line) > 100 and 25 <= len(first) < len(line):
-            line = first
         line = line.rstrip(". ")
-        return line if len(line) <= 250 else line[:249].rsplit(" ", 1)[0] + "\u2026"
-    return (re.sub(r"\s+", " ", EMOJI.sub("", text)).strip() or "Untitled post")[:140]
+        if len(line) <= HEADLINE_MAX:
+            return line
+        cut = line[:HEADLINE_MAX]
+        ends = [m.end() for m in re.finditer(r"[.!?](?=\s)", cut)]
+        if ends and ends[-1] >= 250:          # a full sentence ends between 250 and 400 characters
+            return cut[:ends[-1]].rstrip(". ")
+        return cut.rsplit(" ", 1)[0].rstrip(",;:- ") + "\u2026"
+    return (re.sub(r"\s+", " ", EMOJI.sub("", text)).strip() or "Untitled post")[:HEADLINE_MAX]
 
 
 def rules_item(post: dict, headline: str, now: dt.datetime) -> dict:
