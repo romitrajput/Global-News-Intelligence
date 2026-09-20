@@ -800,11 +800,52 @@ if (typeof document !== 'undefined') (function () {
     </article>`;
   }
 
+  
+  /* ---------- Analyze with AI (headline is the only thing sent) ---------- */
+  function aiPrompt(it) {
+    return `Analyze this news/event:
+
+${it.headline}
+
+Please explain:
+1. What happened?
+2. Why is it important?
+3. What could be the impact?
+4. Which countries, industries and companies could be affected?
+5. What should be monitored next?`;
+  }
+
+  function aiLinks(it) {
+    return `<div class="ai-actions">
+      <b>Analyze with AI</b>
+      <div class="ai-buttons">
+        <button class="btn-ai-img" data-act="ai" data-ai="chatgpt" data-id="${it.id}" title="Analyze with ChatGPT">
+          <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAyADIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWm5ybnJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlbaWmJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==" alt="ChatGPT" class="ai-img"/>
+        </button>
+        <button class="btn-ai-img" data-act="ai" data-ai="claude" data-id="${it.id}" title="Analyze with Claude">
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABCCAYAAAA6Jw+eAAAACXBIWXMAAA7DAAAOwwHHb6thAAACpklEQVRoge2YS2/aQBSGZ4yNSTZZsKPWqVq1qup2q3apVKVKq3ZRtUtTJC5dIFGFBJvEbrCBYJoFi4QRm4S1bXvs8Xy+53ie8wnYRqG0Ug7Hs75j3/nmnDmHc2aMkVH2lN3a2kIkEgGKRCKYn5+H67rQNE1UKpXk+fk5yuUyKpUK8vk88vk8crlcKBaLyGQySKVSSCQSSCQSKBaLyGQyyOVyyOVyyGQySCaTSCaTSCQSSKVSSKVSkMvlUCqVUC6XUalUJr6pVCoTxZ+fn1Er+pQdTU1N4fDwELZtQ9d1KIoCSZJQr9dRr9dRrVbR6/XQbrcxHA5RKpUwGAwQiUQglUpBuVzGbDZDpVLBy8vLWFF9fn5GJpNBNptFPp/HbDbD2dkZTk5O8Pb2Nr5Yp9NBuVxGuVxGr9dDu91GPp9HPp/H9fU1RqMRarUavr6+JpR9TU3N0tISYrEY1tYWSyaBQADL60vIZDKQpMloQRAQvF5CIBAgGA4jGAwil88hEAggGo1C13UYhoHBYID+fh+9Xg+5XA7b29vvEqKjpaWFfHx8kL29PbIsa2dkE4vFyMrKCkWjUQqFQjQajaiqqkpKpRIZhoFyuUyhUKgqPBqN0ufnJ20fH5P9vT16eHgg13Xp+vqazs7OyNZWWkqlEh0eHlImkyHbtgnDkBzHoW63S4PBgEKhED0/P9Pn5yd1u13abrcpEomQYRjE8zxZlkUvLy/U6/WoUCjQ19cXXV9fU3t7e2L5w+FQuVwu+vz8pMvLS9rb2yPLskipVJJoNEqGYVAmkyH1eo1SqRTZt200n8+pz+fTZDIhRVHo5eWFgsFgHQB8Pp+WRqPB3d0d1Ot1np+fUzAYpEgkQqlUipRKJZmamqJQKER7e3u0uLhImqZRKpWi1dXVyufzJ4vFAnu9Hh0cHJDf72cwGJDT6fwfAdzY2KhZrVba2dkhVVXp8vKSnp6eqNfr0cbGBvn9/np7e/vfJ3Z5eakZhoG9vb0qAGQc64HV1dWqzWbTFEXpHh8f1x0dHVWpqkqBQKAKAP8BDlR4M+vVVPAAAAAASUVORK5CYII=" alt="Claude" class="ai-img"/>
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function openAI(it, provider) {
+    const prompt = encodeURIComponent(aiPrompt(it));
+    const urls = {
+      chatgpt: 'https://chatgpt.com/?q=' + prompt,
+      claude: 'https://claude.ai/new?q=' + prompt
+    };
+    const url = urls[provider];
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+
   function detailsHTML(it) {
     const rel = (it.related || []).map(id => all().find(x => x.id === id)).filter(Boolean);
     const opt = (list, cur) => list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
     const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
     return `<div class="details">
+      ${aiLinks(it)}
       ${it.why ? `<p class="why"><b>Why it matters</b> ${esc(it.why)}</p>` : ''}
       ${(it.facts || []).length ? `<ul class="facts">${it.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
       <dl class="kv">
@@ -816,7 +857,7 @@ if (typeof document !== 'undefined') (function () {
         ${row('Sources', (it.sources || []).map(s => s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name)).join(', '))}
       </dl>
       ${rel.length ? `<div class="rel"><b>Related stories</b>${rel.map(r => `<button class="link" data-act="goto" data-id="${r.id}">${flagOf(r.country)} ${esc(r.headline)}</button>`).join('')}</div>` : ''}
-      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? '' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
+      ${it.live ? '<p class="muted" style="margin:0">' + (it.rules ? 'Sorted by keyword rules from a short excerpt. Live items cannot be edited here.' : 'Live stories are written by the AI pipeline and cannot be edited here.') + '</p>' : `<div class="edit">
         <label>Country<select data-edit="country">${opt(E.COUNTRY_NAMES, it.country)}</select></label>
         <label>Sector<select data-edit="sector">${opt(E.SECTOR_NAMES, it.sector)}</select></label>
         <label>Importance<select data-edit="importance">${opt(E.IMP_ORDER, it.importance)}</select></label>
@@ -860,23 +901,12 @@ if (typeof document !== 'undefined') (function () {
   }
 
   function renderControls() {
-    // Render country and sector filter dropdowns
-    const filterBox = $('#filterBox');
-    if (filterBox) {
+    // Render country/sector filter dropdowns
+    const fb = $('#filterBox');
+    if (fb && all().length > 0) {
       const countries = [...new Set(all().map(i => i.country))].sort();
       const sectors = [...new Set(all().map(i => i.sector))].sort();
-      filterBox.innerHTML = `
-        <div class="filter-group">
-          <select id="countryFilter" class="filter-dropdown">
-            <option value="">All Countries</option>
-            ${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-          <select id="sectorFilter" class="filter-dropdown">
-            <option value="">All Sectors</option>
-            ${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
-        </div>
-      `;
+      fb.innerHTML = `<div class="filter-group"><select id="countryFilter" class="filter-dropdown"><option value="">All Countries</option>${countries.map(c => `<option value="${c}" ${S.f.country === c ? 'selected' : ''}>${c}</option>`).join('')}</select><select id="sectorFilter" class="filter-dropdown"><option value="">All Sectors</option>${sectors.map(s => `<option value="${s}" ${S.f.sector === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`;
       document.getElementById('countryFilter')?.addEventListener('change', e => { S.f.country = e.target.value; renderControls(); renderList(); });
       document.getElementById('sectorFilter')?.addEventListener('change', e => { S.f.sector = e.target.value; renderControls(); renderList(); });
     }
@@ -1031,7 +1061,11 @@ if (typeof document !== 'undefined') (function () {
     const act = el && el.dataset.act;
     if (act) {
       const v = el.dataset.v;
-      if (act === 'fi') { S.f.imp = v; renderControls(); renderList(); }
+      if (act === 'ai') {
+        const it = all().find(x => x.id === el.dataset.id);
+        if (it) openAI(it, el.dataset.ai);
+      }
+      else if (act === 'fi') { S.f.imp = v; renderControls(); renderList(); }
       else if (act === 'fc') { S.f.country = S.f.country === v ? '' : v; renderControls(); renderList(); }
       else if (act === 'fs') { S.f.sector = S.f.sector === v ? '' : v; renderControls(); renderList(); }
       else if (act === 'reset') { S.f = Object.assign(S.f, { country: '', sector: '', imp: '', q: '', range: 'all' }); $('#q').value = ''; renderControls(); renderList(); }
@@ -1155,7 +1189,7 @@ if (typeof document !== 'undefined') (function () {
   }
   function renderLiveBar() {
     const m = S.liveMeta;
-    $('#liveBar').innerHTML = '<button class="link inline refresh-icon" data-act="refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>';
+    $('#liveBar').innerHTML = '<button class="link inline" data-act="refresh">Refresh</button>';
   }
   function renderBrief() {
     const b = S.brief, box = $('#aiBrief');
