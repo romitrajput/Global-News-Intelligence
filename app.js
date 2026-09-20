@@ -819,12 +819,8 @@ Please explain:
     return `<div class="ai-actions">
       <b>Analyze with AI</b>
       <div class="ai-buttons">
-        <button class="btn-ai-img" data-act="ai" data-ai="chatgpt" data-id="${it.id}" title="Analyze with ChatGPT">
-          <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAyADIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWm5ybnJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlbaWmJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==" alt="ChatGPT" class="ai-img"/>
-        </button>
-        <button class="btn-ai-img" data-act="ai" data-ai="claude" data-id="${it.id}" title="Analyze with Claude">
-          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAABCCAYAAAA6Jw+eAAAACXBIWXMAAA7DAAAOwwHHb6thAAACpklEQVRoge2YS2/aQBSGZ4yNSTZZsKPWqVq1qup2q3apVKVKq3ZRtUtTJC5dIFGFBJvEbrCBYJoFi4QRm4S1bXvs8Xy+53ie8wnYRqG0Ug7Hs75j3/nmnDmHc2aMkVH2lN3a2kIkEgGKRCKYn5+H67rQNE1UKpXk+fk5yuUyKpUK8vk88vk8crlcKBaLyGQySKVSSCQSSCQSKBaLyGQyyOVyyOVyyGQySCaTSCaTSCQSSKVSSKVSkMvlUCqVUC6XUalUJr6pVCoTxZ+fn1Er+pQdTU1N4fDwELZtQ9d1KIoCSZJQr9dRr9dRrVbR6/XQbrcxHA5RKpUwGAwQiUQglUpBuVzGbDZDpVLBy8vLWFF9fn5GJpNBNptFPp/HbDbD2dkZTk5O8Pb2Nr5Yp9NBuVxGuVxGr9dDu91GPp9HPp/H9fU1RqMRarUavr6+JpR9TU3N0tISYrEY1tYWSyaBQADL60vIZDKQpMloQRAQvF5CIBAgGA4jGAwil88hEAggGo1C13UYhoHBYID+fh+9Xg+5XA7b29vvEqKjpaWFfHx8kL29PbIsa2dkE4vFyMrKCkWjUQqFQjQajaiqqkpKpRIZhoFyuUyhUKgqPBqN0ufnJ20fH5P9vT16eHgg13Xp+vqazs7OyNZWWkqlEh0eHlImkyHbtgnDkBzHoW63S4PBgEKhED0/P9Pn5yd1u13abrcpEomQYRjE8zxZlkUvLy/U6/WoUCjQ19cXXV9fU3t7e2L5w+FQuVwu+vz8pMvLS9rb2yPLskipVJJoNEqGYVAmkyH1eo1SqRTZt200n8+pz+fTZDIhRVHo5eWFgsFgHQB8Pp+WRqPB3d0d1Ot1np+fUzAYpEgkQqlUipRKJZmamqJQKER7e3u0uLhImqZRKpWi1dXVyufzJ4vFAnu9Hh0cHJDf72cwGJDT6fwfAdzY2KhZrVba2dkhVVXp8vKSnp6eqNfr0cbGBvn9/np7e/vfJ3Z5eakZhoG9vb0qAGQc64HV1dWqzWbTFEXpHh8f1x0dHVWpqkqBQKAKAP8BDlR4M+vVVPAAAAAASUVORK5CYII=" alt="Claude" class="ai-img"/>
-        </button>
+        <button class="btn-ai" data-act="ai" data-ai="chatgpt" data-id="${it.id}">ChatGPT</button>
+        <button class="btn-ai" data-act="ai" data-ai="claude" data-id="${it.id}">Claude</button>
       </div>
     </div>`;
   }
