@@ -553,6 +553,7 @@ if (typeof document !== 'undefined') (function () {
     live: [],
     liveMeta: null,
     liveSig: '',
+    videoMeta: null,
     brief: null,
     lastLive: 0,
     files: [],
@@ -788,6 +789,76 @@ if (typeof document !== 'undefined') (function () {
     });
   }
 
+  /* ---------- Video (Phase 2.5) ----------
+     The pipeline attaches the best verified video to important stories (it.video). Three things can be shown:
+       Watch news             a video that can be played inside QwickSignal
+       Watch on YouTube       a video that cannot be embedded: opens the original page
+       No verified video found   nothing good enough was found
+     A story with no "video" data at all (older stories, or video discovery switched off) shows nothing. */
+  const YT_ID = /^[A-Za-z0-9_-]{11}$/;
+  const PENDING_MAX_MS = 3 * 3600e3;     // "Finding related video..." is shown for new stories for at most 3 hours
+
+  function videoInfo(it) {
+    const v = it.video;
+    if (v && v.available) {
+      if (v.platform === 'youtube' && YT_ID.test(v.video_id || '')) {   // the link is rebuilt from the id, never trusted as given
+        return { kind: v.is_embeddable ? 'watch' : 'external', id: v.video_id, url: 'https://www.youtube.com/watch?v=' + v.video_id, v };
+      }
+      if (v.platform && v.platform !== 'youtube' && /^https:\/\//i.test(v.video_url || '')) return { kind: 'external', url: v.video_url, v };
+      return null;                                                       // malformed: show nothing rather than something wrong
+    }
+    if (v && v.status === 'none') return { kind: 'none' };
+    const m = S.videoMeta;
+    if (!v && it.live && m && m.enabled && m.status === 'ok' && (m.importance || []).includes(it.importance) && Date.now() - it.addedAt < PENDING_MAX_MS) {
+      return { kind: 'pending' };
+    }
+    return null;
+  }
+  function videoHTML(it) {
+    const info = videoInfo(it);
+    if (!info) return '';
+    if (info.kind === 'pending') return '<p class="vnote pending" role="status">Finding related video\u2026</p>';
+    if (info.kind === 'none') return '<p class="vnote">No verified video found</p>';
+    const v = info.v, site = v.platform === 'youtube' ? 'YouTube' : (v.platform || '');
+    const meta = [v.publisher, site, v.duration].filter(Boolean).map(esc).join(' \u2022 ');
+    const tri = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+    const label = esc('Watch video: ' + (v.title || it.headline));
+    const btn = info.kind === 'watch'
+      ? `<button class="btn-watch" data-act="watch" data-id="${esc(it.id)}" aria-label="${label}">${tri}Watch news</button>`
+      : `<a class="btn-watch" href="${esc(info.url)}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${tri}Watch on ${v.platform === 'youtube' ? 'YouTube' : 'original source'}</a>`;
+    return `<div class="vid">${btn}${meta ? `<span class="vmeta">${meta}</span>` : ''}</div>`;
+  }
+
+  let vmOpener = null;
+  function openVideo(it, opener) {
+    const info = videoInfo(it), box = $('#videoModal'), frame = $('#vmFrame');
+    if (!info || info.kind !== 'watch' || !box || !frame) return;
+    frame.innerHTML = '';
+    const f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/' + info.id + '?autoplay=1&rel=0&modestbranding=1&playsinline=1';
+    f.title = info.v.title || 'News video';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.allowFullscreen = true;
+    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.appendChild(f);
+    $('#vmTitle').textContent = info.v.title || it.headline;
+    $('#vmMeta').textContent = [info.v.publisher, 'YouTube', info.v.duration].filter(Boolean).join(' \u2022 ');
+    $('#vmOpen').href = info.url;
+    vmOpener = opener || document.activeElement;
+    box.hidden = false;
+    document.body.classList.add('noscroll');
+    const x = box.querySelector('.vclose'); if (x) x.focus();
+  }
+  function closeVideo() {
+    const box = $('#videoModal');
+    if (!box || box.hidden) return;
+    $('#vmFrame').innerHTML = '';             // removing the player stops the video and releases it
+    box.hidden = true;
+    document.body.classList.remove('noscroll');
+    if (vmOpener && document.contains(vmOpener)) vmOpener.focus();
+    vmOpener = null;
+  }
+
   function entryHTML(it) {
     const open = S.open.has(it.id);
     const n = (it.sources || []).length;
@@ -796,6 +867,7 @@ if (typeof document !== 'undefined') (function () {
       <div class="where"><span>${flagOf(it.country)} ${esc(it.country)}</span><span class="sect">${esc(it.sector)}${it.subsector ? ' / ' + esc(it.subsector) : ''}</span></div>
       <h3 class="hl">${esc(it.headline)}</h3>
       ${it.summary ? `<p class="sum">${esc(it.summary)}</p>` : ''}
+      ${videoHTML(it)}
       <div class="foot">${n > 1 ? `<span>${n} sources</span>` : ''}${rel ? `<span>${rel} related</span>` : ''}<span>${ago(it.addedAt)}</span></div>
       ${open ? detailsHTML(it) : ''}
     </article>`;
@@ -1081,6 +1153,11 @@ Please explain:
         const it = all().find(x => x.id === el.dataset.id);
         if (it) openAI(it, el.dataset.ai);
       }
+      else if (act === 'watch') {
+        const it = all().find(x => x.id === el.dataset.id);
+        if (it) openVideo(it, el);
+      }
+      else if (act === 'vclose') { closeVideo(); }
       else if (act === 'fi') { S.f.imp = v; renderControls(); renderList(); }
       else if (act === 'fc') { S.f.country = S.f.country === v ? '' : v; renderControls(); renderList(); }
       else if (act === 'fs') { S.f.sector = S.f.sector === v ? '' : v; renderControls(); renderList(); }
@@ -1142,6 +1219,18 @@ Please explain:
     if (t.id === 'countryFilter') { S.f.country = t.value; renderControls(); renderList(); }
     else if (t.id === 'sectorFilter') { S.f.sector = t.value; renderControls(); renderList(); }
   });
+  document.addEventListener('keydown', ev => {
+    const box = $('#videoModal');
+    if (!box || box.hidden) return;
+    if (ev.key === 'Escape') { ev.preventDefault(); closeVideo(); return; }
+    if (ev.key === 'Tab') {                      // keep keyboard focus inside the open player
+      const f = [...box.querySelectorAll('button, a[href], iframe')].filter(e => !e.disabled);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    }
+  });
   $('#q').addEventListener('input', e => { S.f.q = e.target.value; renderControls(); renderList(); });
   $('#pdfBtn').addEventListener('click', exportPDF);
   $('#csvBtn').addEventListener('click', exportCSV);
@@ -1173,7 +1262,8 @@ Please explain:
       country: r.country, countryCode: r.countryCode, involved: r.involved, sector: r.sector, subsector: r.subsector,
       also: r.also, signals: r.signals, importance: r.importance, companies: r.companies, facts: r.facts,
       date: (x.published || '').slice(0, 10), text: x.excerpt || '', addedAt: t,
-      sources: (x.sources || []).map(s => ({ name: s.name, url: s.url, at: Date.parse(s.at) || t })), related: []
+      sources: (x.sources || []).map(s => ({ name: s.name, url: s.url, at: Date.parse(s.at) || t })), related: [],
+      video: x.video || null
     };
   }
   function mapLive(x) {
@@ -1188,7 +1278,8 @@ Please explain:
       companies: x.companies || [], facts: x.facts || [], date: (x.published || '').slice(0, 10),
       text: (x.summary || '') + ' ' + (x.why_it_matters || ''), addedAt: t,
       sources: (x.sources || []).map(s => ({ name: s.name, url: s.url, at: Date.parse(s.at) || t })),
-      related: (x.related || []).map(r => 'L' + r)
+      related: (x.related || []).map(r => 'L' + r),
+      video: x.video || null
     };
   }
   const readCache = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
@@ -1207,11 +1298,13 @@ Please explain:
       else { feed = readCache('gni-feed'); cached = !!feed; }
       if (brief && brief.overview) writeCache('gni-brief', brief); else brief = readCache('gni-brief');
       const items = feed && Array.isArray(feed.items) ? feed.items : [];
-      const sig = items.map(i => i.id + '|' + (i.updated || '')).join(',');
+      const sig = items.map(i => i.id + '|' + (i.updated || '') + '|' + (i.video ? (i.video.status || '') + (i.video.video_id || '') + (i.video.checked_at || '') : '')).join(',') +
+        '|' + (feed && feed.video_meta ? feed.video_meta.status : '');
       S.lastLive = Date.now();
       if (!manual && S.liveMeta && sig === prevSig) return;   // silent check, nothing new: leave the screen alone
       S.live = items.map(mapLive);
       S.liveSig = sig;
+      S.videoMeta = feed && feed.video_meta ? feed.video_meta : null;
       S.liveMeta = feed ? { at: Date.parse(feed.generated_at) || 0, cached } : null;
       S.brief = brief;
       renderAll(); renderBrief();

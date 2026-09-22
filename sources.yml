@@ -48,3 +48,13 @@ settings:
   max_age_hours: 48        # ignore older posts
   keep_days: 7             # how long stories stay in the app
   telegram_pages: 5        # pages of about 20 posts read per channel per run
+
+  # Phase 2.5, video intelligence: attach a verified news video to important stories (needs YOUTUBE_API_KEY, see .env.example).
+  # Uncomment any of these to change the defaults; every line here is optional.
+  #video_enabled: true                        # false switches video discovery off completely
+  #video_importance: [Critical, High]         # add Medium to cover more stories (uses more of the daily API budget)
+  #video_min_score: 0.75                      # 0 to 1: how sure the match must be before a video is attached
+  #video_platforms: [youtube]                 # searched in this order; YouTube is the only one built in for now
+  #video_max_per_run: 8                       # searches per 15-minute run
+  #video_daily_unit_budget: 8000              # YouTube gives 10,000 free units a day; one search costs 100
+  #video_trusted_publishers: []               # extra channel names to always trust, e.g. ["Sansad TV"]

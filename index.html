@@ -179,6 +179,33 @@ ol.steps li{margin:4px 0}
 /* Links inside an opened story were dark blue on the dark theme */
 .details a{color:var(--accent);font-weight:600}
 
+/* Video (Phase 2.5): a quiet, secondary row under the story summary */
+.vid{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:10px}
+.btn-watch{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:40px;padding:0 14px;border-radius:10px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:700 12.5px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+.btn-watch svg{width:14px;height:14px;fill:currentColor;flex:none}
+@media (hover:hover){.btn-watch:hover{border-color:var(--accent);color:var(--accent)}}
+.btn-watch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vmeta{font-size:12.5px;font-weight:600;color:var(--ink2)}
+.vnote{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.vnote.pending::after{content:"";display:inline-block;width:5px;height:5px;margin-left:6px;border-radius:50%;background:var(--accent);animation:qspulse 1.2s ease-in-out infinite;vertical-align:middle}
+@keyframes qspulse{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* Video player: a 16:9 window over the app; the video is unloaded when it closes */
+body.noscroll{overflow:hidden}
+.vmodal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.vback{position:absolute;inset:0;background:rgba(3,10,18,.8)}
+.vpanel{position:relative;width:min(100%,960px);max-height:100%;overflow:hidden;display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.vhead{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px}
+.vtitle{flex:1;min-width:0;font-size:14px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vclose{flex:none;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.vclose svg{width:18px;height:18px}
+.vstage{background:#000}
+.vframe{position:relative;width:min(100%,calc((100vh - 150px) * 1.7778));aspect-ratio:16/9;margin:0 auto;background:#000}
+.vframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vfoot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;padding:10px 14px 12px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.vfoot a{color:var(--accent);font-weight:700}
+
 /* tabs and toast */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .tabs button{flex:1;min-height:58px;border:0;background:transparent;font-weight:600;font-size:14px;color:var(--ink2);cursor:pointer;position:relative}
@@ -313,6 +340,17 @@ ol.steps li{margin:4px 0}
   <button role="tab" data-tab="export" aria-selected="false">Export</button>
 </nav>
 <div id="toast" role="status" aria-live="polite"></div>
+<div class="vmodal" id="videoModal" role="dialog" aria-modal="true" aria-labelledby="vmTitle" hidden>
+  <div class="vback" data-act="vclose"></div>
+  <div class="vpanel">
+    <div class="vhead">
+      <div class="vtitle" id="vmTitle"></div>
+      <button class="vclose" data-act="vclose" aria-label="Close video" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="vstage"><div class="vframe" id="vmFrame"></div></div>
+    <div class="vfoot"><span id="vmMeta"></span><a id="vmOpen" href="#" target="_blank" rel="noopener noreferrer">Watch on YouTube &#8599;</a></div>
+  </div>
+</div>
 
 <script src="app.js" defer></script>
 </body>
