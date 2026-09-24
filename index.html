@@ -73,6 +73,29 @@ input[type=search]{width:100%;min-height:44px;padding:0 14px;border-radius:10px;
 .fchip button{border:0;background:transparent;font-size:20px;line-height:1;min-width:32px;min-height:32px;color:var(--ink2)}
 .stack>*+*{margin-top:12px}
 
+/* Link Pages (Phase A) */
+.lp-block{margin:0 0 26px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.lp-block:last-child{border-bottom:0}
+.lp-h{margin:0 0 4px;font-size:17px}
+.lp-sub{margin:0 0 12px;color:var(--ink2);font-size:13.5px;max-width:58ch;line-height:1.5}
+.lp-add{display:flex;gap:8px}
+.lp-add input{flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.lp-add input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lp-syncnote{margin:8px 0 0;font-size:13px;color:var(--ink2)}
+.lp-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.lp-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface)}
+.lp-row .name{flex:1;min-width:0;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-row .status{flex:none;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+.lp-row .status.approved{background:rgba(79,182,192,.16);color:var(--accent)}
+.lp-row .status.pending{background:rgba(156,174,189,.16);color:var(--ink2)}
+.lp-row .status.rejected{background:rgba(217,95,90,.14);color:#D95F5A}
+.lp-row button.follow{flex:none;min-height:34px;padding:0 12px;border-radius:7px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font-size:13px;font-weight:600;cursor:pointer}
+.lp-row button.follow.on{border-color:var(--accent);color:var(--accent)}
+.lp-empty{color:var(--ink2);font-size:13.5px;padding:6px 2px}
+.lp-sync{display:flex;align-items:center;gap:10px}
+.lp-sync code{flex:1;min-width:0;padding:10px 12px;border-radius:8px;border:1.5px dashed var(--ink2);background:var(--surface);font:700 15px/1.2 ui-monospace,monospace;letter-spacing:.04em;overflow-x:auto;white-space:nowrap}
+.btn.small{min-height:44px;padding:0 14px;font-size:13.5px}
+
 /* segmented + chips */
 .seg{display:flex;border:1.5px solid var(--ink);border-radius:10px;overflow:hidden}
 .seg button{flex:1;min-height:40px;border:0;background:transparent;font-weight:600;font-size:14px;cursor:pointer}
@@ -233,22 +256,50 @@ body.noscroll{overflow:hidden}
 <main>
   <!-- INBOX -->
   <section id="view-inbox" class="view">
-    <h1>Upload</h1>
-    <p class="lede">Paste a message or add files. Each item is sorted by country, sector and importance on this phone.</p>
-    <label class="vh" for="paste">Paste news or messages</label>
-    <textarea id="paste" placeholder="Paste news or a Telegram message here. To add several at once, put --- on its own line between them."></textarea>
-    <label class="check"><input type="checkbox" id="byPara"> Treat each paragraph as a separate message</label>
+    <h1>Link Pages</h1>
+    <p class="lede">Follow Telegram channels, or add a message or file. Each item is sorted by country, sector and importance.</p>
 
-    <input type="file" id="files" multiple hidden accept=".pdf,.txt,.csv,.tsv,.md,application/pdf,text/plain,text/csv">
-    <label class="pick" for="files">Choose files <small>PDF, TXT or CSV</small></label>
-    <div id="fileChips" class="fchips"></div>
-
-    <div class="row" style="margin-top:16px">
-      <button id="addBtn" class="btn primary">Add to Signals</button>
+    <div class="lp-block">
+      <h2 class="lp-h">Telegram</h2>
+      <p class="lp-sub">New channels are reviewed before they start appearing, so one person's choice can't add a source to everyone else's feed. Once approved, anyone can follow it.</p>
+      <div class="lp-add">
+        <input id="tgInput" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="t/channelname">
+        <button id="tgAdd" class="btn primary">+ Add</button>
+      </div>
+      <div id="tgSyncNote" class="lp-syncnote"></div>
+      <div id="tgList" class="lp-list" aria-live="polite"></div>
     </div>
 
-    <div id="log" class="log" style="margin-top:18px" aria-live="polite"></div>
-    <div id="fresh"></div>
+    <div class="lp-block">
+      <h2 class="lp-h">Paste or upload</h2>
+      <label class="vh" for="paste">Paste news or messages</label>
+      <textarea id="paste" placeholder="Paste news or a Telegram message here. To add several at once, put --- on its own line between them."></textarea>
+      <label class="check"><input type="checkbox" id="byPara"> Treat each paragraph as a separate message</label>
+
+      <input type="file" id="files" multiple hidden accept=".pdf,.txt,.csv,.tsv,.md,application/pdf,text/plain,text/csv">
+      <label class="pick" for="files">Choose files <small>PDF, TXT or CSV</small></label>
+      <div id="fileChips" class="fchips"></div>
+
+      <div class="row" style="margin-top:16px">
+        <button id="addBtn" class="btn primary">Add to Signals</button>
+      </div>
+
+      <div id="log" class="log" style="margin-top:18px" aria-live="polite"></div>
+      <div id="fresh"></div>
+    </div>
+
+    <div class="lp-block">
+      <h2 class="lp-h">Sync across your devices</h2>
+      <p class="lp-sub">This code links your saved articles and followed channels on another phone or browser. Anyone with the code can use it, so keep it to yourself and your own devices.</p>
+      <div class="lp-sync">
+        <code id="syncCodeShow">\u2026</code>
+        <button id="syncCopy" class="btn small">Copy</button>
+      </div>
+      <div class="lp-add" style="margin-top:10px">
+        <input id="syncInput" type="text" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="Enter a code from another device">
+        <button id="syncUse" class="btn small">Use this code</button>
+      </div>
+    </div>
   </section>
 
   <!-- BRIEFING -->
@@ -335,7 +386,7 @@ body.noscroll{overflow:hidden}
 </main>
 
 <nav class="tabs" role="tablist" aria-label="Sections">
-  <button role="tab" data-tab="inbox" aria-selected="true">Upload</button>
+  <button role="tab" data-tab="inbox" aria-selected="true">Link Pages</button>
   <button role="tab" data-tab="brief" aria-selected="false">Signals</button>
   <button role="tab" data-tab="export" aria-selected="false">Export</button>
 </nav>

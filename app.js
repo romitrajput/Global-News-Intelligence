@@ -560,7 +560,12 @@ if (typeof document !== 'undefined') (function () {
     tab: 'inbox',
     open: new Set(),
     exportRange: 'today',
-    f: { range: '7d', country: '', sector: '', imp: '', q: '', view: 'priority' }
+    f: { range: '7d', country: '', sector: '', imp: '', q: '', view: 'priority' },
+    syncCode: null,          // this device's sync code (also usable on other devices to share state)
+    saved: new Set(),        // article ids saved by the user (Phase B, kept here so Sync can use it early)
+    dismissed: new Set(),    // article ids dismissed by the user (Phase B)
+    myChannels: new Set(),   // Telegram channels this user has chosen to follow (empty = follow everything)
+    proposedChannels: []     // channels this user has proposed, with their pending/approved/rejected status
   };
 
   /* ---------- storage (IndexedDB) ---------- */
@@ -591,6 +596,188 @@ if (typeof document !== 'undefined') (function () {
     clear() { return DB.tx('readwrite', s => s.clear()); }
   };
   const strip = it => JSON.parse(JSON.stringify(it));
+
+  /* ---------- Sync (Phase 3): saved / dismissed / followed channels, shared across a person's devices ----------
+     There are no accounts. A device makes a random "sync code" the first time it is used, and stores it in
+     localStorage. Entering the same code on another device makes both read and write the same small record in
+     Firestore. Anyone who has the code can see and change that record - there is no password - so the code is
+     shown once, clearly marked as something to keep private, the same way a person would treat a shared link.
+     A sync problem must never stop the news feed from working: every method below fails quietly and falls back
+     to the device's own local copy. */
+  const SYNC_KEY = 'qs-sync-code-v1';
+  const SYNC_CACHE_KEY = 'qs-sync-cache-v1';
+  const FIREBASE = {
+    // Public web config: safe to ship in client code. Firestore access is controlled by server-side Security
+    // Rules (see firestore.rules in the repo), not by keeping this object secret.
+    apiKey: 'AIzaSyExampleQwickSignalPublicWebConfig00',
+    projectId: 'qwicksignal-sync'
+  };
+  const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents`;
+
+  function newSyncCode() {
+    const AB = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0/O/1/I, so a code is easy to read and re-type
+    let s = '';
+    for (let i = 0; i < 8; i++) s += AB[Math.floor(Math.random() * AB.length)];
+    return 'QS-' + s.slice(0, 4) + '-' + s.slice(4);
+  }
+  // Case-sensitive on purpose: callers normalize (trim + uppercase) before calling this, so a caller that
+  // forgets to normalize gets a clear "invalid" rather than a silently auto-corrected code.
+  function validSyncCode(s) { return /^QS-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/.test(s || ''); }
+
+  // Firestore REST <-> plain JS value conversion (the REST API wraps every value with its type).
+  function toFsValue(v) {
+    if (Array.isArray(v)) return { arrayValue: { values: v.map(toFsValue) } };
+    if (typeof v === 'string') return { stringValue: v };
+    if (typeof v === 'number') return { integerValue: String(Math.trunc(v)) };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    return { nullValue: null };
+  }
+  function fromFsValue(v) {
+    if (!v) return null;
+    if (v.arrayValue) return (v.arrayValue.values || []).map(fromFsValue);
+    if ('stringValue' in v) return v.stringValue;
+    if ('integerValue' in v) return parseInt(v.integerValue, 10);
+    if ('booleanValue' in v) return v.booleanValue;
+    return null;
+  }
+  function fsFieldsToObject(fields) {
+    const out = {};
+    for (const k in (fields || {})) out[k] = fromFsValue(fields[k]);
+    return out;
+  }
+
+  const Sync = {
+    code: null,
+    ready: false,
+
+    localCode() { try { return localStorage.getItem(SYNC_KEY); } catch (e) { return null; } },
+    saveLocalCode(code) { try { localStorage.setItem(SYNC_KEY, code); } catch (e) { /* private browsing etc: sync still works this session */ } },
+    cacheRead() { try { return JSON.parse(localStorage.getItem(SYNC_CACHE_KEY) || 'null'); } catch (e) { return null; } },
+    cacheWrite(obj) { try { localStorage.setItem(SYNC_CACHE_KEY, JSON.stringify(obj)); } catch (e) { /* ignore */ } },
+
+    async init() {
+      let code = this.localCode();
+      if (!code) { code = newSyncCode(); this.saveLocalCode(code); }
+      this.code = code;
+      S.syncCode = code;
+      const cached = this.cacheRead();       // show something instantly; the network read (if any) refines it after
+      if (cached) this.applyRecord(cached);
+      await this.pull();
+    },
+
+    async switchTo(code) {
+      code = (code || '').trim().toUpperCase();
+      if (!validSyncCode(code)) { toast('That code doesn\u2019t look right. It should look like QS-AB12-CD34.'); return false; }
+      this.saveLocalCode(code);
+      this.code = code;
+      S.syncCode = code;
+      this.cacheWrite(null);
+      S.saved = new Set(); S.dismissed = new Set(); S.myChannels = new Set();
+      const ok = await this.pull();
+      toast(ok ? 'Synced. This device now shares saved articles and channels with that code.' : 'Saved the code, but couldn\u2019t reach the sync service just now. It will sync when back online.');
+      renderAll(); renderChannels();
+      return true;
+    },
+
+    docUrl() { return `${FS_BASE}/qs_sync/${encodeURIComponent(this.code)}?key=${FIREBASE.apiKey}`; },
+
+    applyRecord(rec) {
+      S.saved = new Set(rec.saved || []);
+      S.dismissed = new Set(rec.dismissed || []);
+      S.myChannels = new Set(rec.channels || []);
+    },
+
+    async pull() {
+      try {
+        const r = await fetch(this.docUrl(), { cache: 'no-store' });
+        if (r.status === 404) { this.ready = true; return true; }      // no record yet: a fresh, empty device
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const doc = await r.json();
+        const rec = fsFieldsToObject(doc.fields);
+        this.applyRecord(rec);
+        this.cacheWrite(rec);
+        this.ready = true;
+        return true;
+      } catch (e) {
+        this.ready = false;           // network trouble or first run offline: keep working from the local cache
+        return false;
+      }
+    },
+
+    async push() {
+      if (!this.code) return false;
+      const rec = { saved: [...S.saved], dismissed: [...S.dismissed], channels: [...S.myChannels] };
+      this.cacheWrite(rec);
+      try {
+        const fields = { saved: toFsValue(rec.saved), dismissed: toFsValue(rec.dismissed), channels: toFsValue(rec.channels) };
+        const r = await fetch(this.docUrl(), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        this.ready = true;
+        return true;
+      } catch (e) {
+        return false;                 // saved locally; will retry on the next change or next launch
+      }
+    },
+
+    pushSoon: (() => { let t = null; return () => { clearTimeout(t); t = setTimeout(() => Sync.push(), 600); }; })()
+  };
+
+  /* ---------- Telegram channel proposals (Link Pages, Phase A) ----------
+     A channel a user adds is not fetched right away: it is proposed, stored in its own Firestore document, and
+     only the person holding the repository can approve it (in the Firebase console, or by moving it into
+     sources.yml - see the note in the Link Pages screen). This keeps one person's channel choice from silently
+     adding a new source to everyone else's feed. Once approved, any user can choose to follow it. */
+  const CHANNEL_RX = /^[a-z0-9_]{5,32}$/i;
+  function normalizeChannel(raw) {
+    let s = (raw || '').trim();
+    if (s.startsWith('t/')) s = s.slice(2);
+    s = s.replace(/^@/, '').replace(/^https?:\/\/t\.me\//i, '');
+    return s.trim();
+  }
+  const Channels = {
+    async propose(raw) {
+      const name = normalizeChannel(raw);
+      if (!CHANNEL_RX.test(name)) { toast('Use the form t/channelname \u2013 letters, numbers and underscores only.'); return false; }
+      try {
+        const url = `${FS_BASE}/qs_channels/${encodeURIComponent(name.toLowerCase())}?key=${FIREBASE.apiKey}`;
+        const existing = await fetch(url, { cache: 'no-store' });
+        if (existing.ok) {
+          const doc = await existing.json();
+          const status = fsFieldsToObject(doc.fields).status;
+          if (status === 'approved') { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); renderChannels(); toast('t/' + name + ' is already approved \u2014 added it to your feed.'); return true; }
+          toast('t/' + name + ' has already been proposed and is ' + (status || 'pending') + '.');
+          return false;
+        }
+        const fields = { channel: toFsValue(name), status: toFsValue('pending'), added_by: toFsValue(Sync.code || ''), added_at: toFsValue(new Date().toISOString()) };
+        const r = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        toast('t/' + name + ' sent for approval. It will start appearing once approved.');
+        S.proposedChannels.push({ channel: name, status: 'pending' });
+        renderChannels();
+        return true;
+      } catch (e) {
+        toast('Couldn\u2019t reach the sync service to propose that channel. Try again shortly.');
+        return false;
+      }
+    },
+
+    async listApproved() {
+      try {
+        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`.replace('/documents:runQuery', ':runQuery'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const rows = await r.json();
+        return rows.filter(x => x.document).map(x => fsFieldsToObject(x.document.fields).channel).filter(Boolean);
+      } catch (e) {
+        return null;      // unknown: the UI treats this as "couldn't load the list", not as "no channels"
+      }
+    },
+
+    follow(name) { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); },
+    unfollow(name) { S.myChannels.delete(name.toLowerCase()); Sync.pushSoon(); }
+  };
 
   /* ---------- helpers ---------- */
   let toastTimer;
@@ -777,10 +964,19 @@ if (typeof document !== 'undefined') (function () {
   }
 
   /* ---------- rendering ---------- */
+  function itemChannel(it) {
+    const src = (it.sources || [])[0];
+    const m = src && /^Telegram:\s*(.+)$/i.exec(src.name || '');
+    return m ? m[1].trim().toLowerCase() : null;
+  }
   function filtered(skip) {
     const f = S.f, q = f.q.trim().toLowerCase();
     return all().filter(it => {
       if (!inRange(it, f.range)) return false;
+      if (S.myChannels.size && it.live) {           // an empty "followed" list means "show everything" (no filter yet chosen)
+        const ch = itemChannel(it);
+        if (ch && !S.myChannels.has(ch)) return false;
+      }
       if (skip !== 'country' && f.country && it.country !== f.country && !(it.involved || []).includes(f.country)) return false;
       if (skip !== 'sector' && f.sector && it.sector !== f.sector) return false;
       if (skip !== 'imp' && f.imp && it.importance !== f.imp) return false;
@@ -1033,6 +1229,41 @@ Please explain:
   function renderFiles() {
     $('#fileChips').innerHTML = S.files.map((f, i) => `<span class="fchip">${esc(f.name)}<button aria-label="Remove ${esc(f.name)}" data-act="rmfile" data-i="${i}">\u00d7</button></span>`).join('');
   }
+
+  function renderSyncCode() {
+    const el = $('#syncCodeShow');
+    if (el) el.textContent = S.syncCode || '\u2026';
+  }
+
+  let approvedChannelsCache = null;   // fetched once per visit; a manual Refresh isn't needed for a review queue this small
+  async function renderChannels() {
+    const box = $('#tgList'), note = $('#tgSyncNote');
+    if (!box) return;
+    if (note) note.textContent = Sync.ready ? '' : 'Working from this device only until the sync service is reachable.';
+    if (approvedChannelsCache === null) approvedChannelsCache = await Channels.listApproved();
+    const approved = approvedChannelsCache || [];
+    const rows = [];
+    approved.forEach(name => {
+      const following = S.myChannels.has(name.toLowerCase());
+      rows.push({ name, status: 'approved', following });
+    });
+    S.proposedChannels.forEach(p => {
+      if (!approved.some(a => a.toLowerCase() === p.channel.toLowerCase())) rows.push({ name: p.channel, status: p.status, following: false });
+    });
+    if (approvedChannelsCache === null) {
+      box.innerHTML = '<p class="lp-empty">Couldn\u2019t load the channel list right now \u2013 check your connection.</p>';
+      return;
+    }
+    if (!rows.length) {
+      box.innerHTML = '<p class="lp-empty">No channels yet. Add one above \u2013 once it\u2019s approved you can follow it here.</p>';
+      return;
+    }
+    box.innerHTML = rows.map(r => `<div class="lp-row">
+      <span class="name">t/${esc(r.name)}</span>
+      <span class="status ${r.status}">${esc(r.status)}</span>
+      ${r.status === 'approved' ? `<button class="follow${r.following ? ' on' : ''}" data-act="tgfollow" data-v="${esc(r.name)}">${r.following ? 'Following' : 'Follow'}</button>` : ''}
+    </div>`).join('');
+  }
   async function renderExport() {
     const n = S.items.length;
     $('#storeInfo').textContent = n + (n === 1 ? ' item you added is' : ' items you added are') + ' stored on this phone and never uploaded. ' + S.live.length + ' live stories come from the feed.';
@@ -1165,6 +1396,11 @@ Please explain:
       else if (act === 'sample') { await loadSample(); setTab('brief'); }
       else if (act === 'refresh') { await loadLive(true); }
       else if (act === 'rmfile') { S.files.splice(+el.dataset.i, 1); renderFiles(); }
+      else if (act === 'tgfollow') {
+        const name = el.dataset.v;
+        if (S.myChannels.has(name.toLowerCase())) Channels.unfollow(name); else Channels.follow(name);
+        renderChannels(); renderAll();
+      }
       else if (act === 'goto') {
         const id = el.dataset.id;
         S.f = Object.assign(S.f, { country: '', sector: '', imp: '', q: '', range: 'all' }); $('#q').value = '';
@@ -1232,6 +1468,24 @@ Please explain:
     }
   });
   $('#q').addEventListener('input', e => { S.f.q = e.target.value; renderControls(); renderList(); });
+  $('#tgAdd').addEventListener('click', async () => {
+    const inp = $('#tgInput'); const v = inp.value;
+    if (!v.trim()) return;
+    const ok = await Channels.propose(v);
+    if (ok) inp.value = '';
+  });
+  $('#tgInput').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('#tgAdd').click(); } });
+  $('#syncCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(S.syncCode || ''); toast('Sync code copied.'); }
+    catch (e) { toast('Couldn\u2019t copy automatically \u2013 the code is shown above to copy by hand.'); }
+  });
+  $('#syncUse').addEventListener('click', async () => {
+    const inp = $('#syncInput'); const v = inp.value;
+    if (!v.trim()) return;
+    const ok = await Sync.switchTo(v);
+    if (ok) { inp.value = ''; renderSyncCode(); }
+  });
+  $('#syncInput').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('#syncUse').click(); } });
   $('#pdfBtn').addEventListener('click', exportPDF);
   $('#csvBtn').addEventListener('click', exportCSV);
   $('#clearBtn').addEventListener('click', async () => {
@@ -1380,6 +1634,7 @@ Please explain:
     }
     setTab('inbox'); renderFiles(); renderAll(); renderLiveBar();
     loadLive();
+    Sync.init().then(() => { renderSyncCode(); renderChannels(); renderAll(); });   // never blocks the news feed while it loads
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
     }

@@ -1,0 +1,55 @@
+// QwickSignal Phase 3: Firestore Security Rules
+//
+// There is no login, so these rules are the only thing standing between "anyone on the
+// internet" and this data. Two collections, two different trust models:
+//
+//   qs_sync/{code}      One record per sync code. Anyone who has the code can read and
+//                       write it (that IS the sharing mechanism - see Sync in app.js).
+//                       Rules here only stop abuse: wrong shape, oversized lists, or a
+//                       client trying to invent a new field.
+//
+//   qs_channels/{name}  One record per proposed Telegram channel. Anyone can propose a
+//                       NEW one (status must start "pending"). Nobody can approve their
+//                       own proposal from the client - approving means changing status
+//                       to "approved", and this rule set does not allow client updates at
+//                       all, so that only happens by hand in the Firebase console (or by
+//                       moving the channel into sources.yml, which the pipeline also
+//                       honours - see the note in index.html's Link Pages screen).
+//
+// To use: Firebase console -> Firestore Database -> Rules -> paste this file -> Publish.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /qs_sync/{code} {
+      allow get: if true;
+
+      allow create, update: if
+        code.matches('QS-[A-Z2-9]{4}-[A-Z2-9]{4}') &&
+        request.resource.data.keys().hasOnly(['saved', 'dismissed', 'channels']) &&
+        request.resource.data.saved is list && request.resource.data.saved.size() <= 5000 &&
+        request.resource.data.dismissed is list && request.resource.data.dismissed.size() <= 5000 &&
+        request.resource.data.channels is list && request.resource.data.channels.size() <= 200;
+
+      allow delete: if false;
+    }
+
+    match /qs_channels/{name} {
+      allow get, list: if true;
+
+      allow create: if
+        name.matches('[a-z0-9_]{5,32}') &&
+        request.resource.data.channel is string &&
+        request.resource.data.channel.lower() == name &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.added_by is string && request.resource.data.added_by.size() <= 32 &&
+        request.resource.data.added_at is string;
+
+      // No client update/delete on purpose: approving or rejecting a proposal is done by
+      // hand (Firebase console), so a proposer can never approve their own channel.
+      allow update, delete: if false;
+    }
+  }
+}

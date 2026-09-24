@@ -162,6 +162,44 @@ def jaccard(a: set, b: set) -> float:
 
 
 # ----------------------------------------------------------------- config and state
+# Public web config for the same Firestore project the app syncs to (see FIREBASE in app.js). This value is
+# meant to be public; Firestore's own Security Rules are what keep the data safe, not secrecy of this config.
+# Public web config for the same Firestore project the app syncs to (see FIREBASE in app.js). This value is
+# meant to be public; Firestore's own Security Rules are what keep the data safe, not secrecy of this config.
+# Can be overridden with the FIREBASE_API_KEY / FIREBASE_PROJECT_ID repository variables (Settings -> Secrets
+# and variables -> Actions -> Variables) so the real project ID never has to be edited into this file by hand.
+FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyExampleQwickSignalPublicWebConfig00")
+FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal-sync")
+
+
+def fetch_approved_channels() -> list[str]:
+    """Telegram channels users proposed from the app's Link Pages screen and that have since been approved
+    (see app.js: Channels.propose / the note in index.html about approving in Firebase or sources.yml).
+    Never raises: if the sync service can't be reached, the pipeline simply uses sources.yml alone, as before."""
+    url = (f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT}/databases/(default)/documents:runQuery"
+           f"?key={FIREBASE_API_KEY}")
+    body = {"structuredQuery": {"from": [{"collectionId": "qs_channels"}],
+                                "where": {"fieldFilter": {"field": {"fieldPath": "status"}, "op": "EQUAL", "value": {"stringValue": "approved"}}}}}
+    try:
+        r = requests.post(url, json=body, timeout=15)
+        if not r.ok:
+            log(f"  channel sync: HTTP {r.status_code}, using sources.yml only")
+            return []
+        rows = r.json()
+        names = []
+        for row in rows:
+            doc = row.get("document")
+            if not doc:
+                continue
+            ch = ((doc.get("fields") or {}).get("channel") or {}).get("stringValue")
+            if ch and re.fullmatch(r"[A-Za-z0-9_]{5,32}", ch):
+                names.append(ch)
+        return names
+    except Exception as exc:  # noqa: BLE001
+        log(f"  channel sync unavailable ({exc}), using sources.yml only")
+        return []
+
+
 def load_config() -> dict:
     cfg = {}
     if PATHS["sources"].exists():
@@ -846,6 +884,11 @@ def collect(cfg: dict, state: dict, now: dt.datetime) -> tuple[list[dict], dict]
 
 def cmd_fetch(client=None) -> int:
     cfg, state = load_config(), load_state()
+    existing = {(e["channel"] if isinstance(e, dict) else str(e)).lower() for e in cfg["telegram_public"]}
+    added = [ch for ch in fetch_approved_channels() if ch.lower() not in existing]
+    if added:
+        log(f"  channel sync: {len(added)} user-approved channel(s) added this run: {', '.join(added)}")
+        cfg["telegram_public"] += added
     s, now = cfg["settings"], utcnow()
     if not (cfg["telegram_public"] or cfg["telegram_private"] or cfg["rss"] or (cfg["x"]["enabled"] and cfg["x"]["accounts"])):
         log("No sources are set up yet. Open sources.yml and add at least one Telegram channel, X account or RSS feed.")
