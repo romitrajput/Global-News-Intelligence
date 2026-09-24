@@ -763,7 +763,7 @@ if (typeof document !== 'undefined') (function () {
 
     async listApproved() {
       try {
-        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}` {
+        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`,{
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
         });
