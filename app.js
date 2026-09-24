@@ -761,24 +761,61 @@ if (typeof document !== 'undefined') (function () {
       }
     },
 
-    
-async listApproved() {
-      try {
-        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`,{
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
-        });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const rows = await r.json();
-        return rows.filter(x => x.document).map(x => fsFieldsToObject(x.document.fields).channel).filter(Boolean);
-      } catch (e) {
-        return null;      // unknown: the UI treats this as "couldn't load the list", not as "no channels"
+    async listApproved() {
+  try {
+    const names = [];
+    let pageToken = '';
+
+    do {
+      const url = new URL(`${FS_BASE}/qs_channels`);
+      url.searchParams.set('key', FIREBASE.apiKey);
+      url.searchParams.set('pageSize', '100');
+
+      if (pageToken) {
+        url.searchParams.set('pageToken', pageToken);
       }
-    },
-     
-    follow(name) { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); },
-    unfollow(name) { S.myChannels.delete(name.toLowerCase()); Sync.pushSoon(); }
-  };
+
+      const r = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        cache: 'no-store'
+      });
+
+      const text = await r.text();
+
+      if (!r.ok) {
+        console.error(
+          'QwickSignal Firestore channel list failed:',
+          r.status,
+          text
+        );
+        throw new Error(`Firestore HTTP ${r.status}: ${text}`);
+      }
+
+      const data = text ? JSON.parse(text) : {};
+
+      for (const doc of (data.documents || [])) {
+        const row = fsFieldsToObject(doc.fields || {});
+
+        if (row.status === 'approved' && row.channel) {
+          names.push(row.channel);
+        }
+      }
+
+      pageToken = data.nextPageToken || '';
+
+    } while (pageToken);
+
+    return [...new Set(names)];
+
+  } catch (e) {
+    console.error('QwickSignal listApproved failed:', e);
+    return null;
+  }
+},
+
 
   /* ---------- helpers ---------- */
   let toastTimer;
