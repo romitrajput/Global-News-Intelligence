@@ -59,10 +59,10 @@ RANK = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
 DEFAULTS = {
     #"extraction_model": "claude-haiku-4-5-20251001",
     #"briefing_model": "claude-sonnet-5",
-    "max_new_per_run": 100,    # posts sent to the AI per run; the rest wait for the next run
+    "max_new_per_run": 150,    # posts sent to the AI per run; the rest wait for the next run
     "max_age_hours": 48,      # ignore posts older than this
     "keep_days": 7,           # how long items stay in feed.json
-    "max_items": 600,
+    "max_items": 2000,
     "min_chars": 60,          # skip very short posts
     "batch_size": 20,
     "telegram_pages": 5,      # pages of ~20 posts fetched per public channel
