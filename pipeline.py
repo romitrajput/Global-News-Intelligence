@@ -168,8 +168,8 @@ def jaccard(a: set, b: set) -> float:
 # meant to be public; Firestore's own Security Rules are what keep the data safe, not secrecy of this config.
 # Can be overridden with the FIREBASE_API_KEY / FIREBASE_PROJECT_ID repository variables (Settings -> Secrets
 # and variables -> Actions -> Variables) so the real project ID never has to be edited into this file by hand.
-FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyExampleQwickSignalPublicWebConfig00")
-FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal-sync")
+FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyBTix4TmUn9oVQrX0ByPra4FissOfAHefY")
+FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal")
 
 
 def fetch_approved_channels() -> list[str]:
