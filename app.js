@@ -761,7 +761,8 @@ if (typeof document !== 'undefined') (function () {
       }
     },
 
-    async listApproved() {
+    
+async listApproved() {
       try {
         const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`,{
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -774,7 +775,7 @@ if (typeof document !== 'undefined') (function () {
         return null;      // unknown: the UI treats this as "couldn't load the list", not as "no channels"
       }
     },
-
+     
     follow(name) { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); },
     unfollow(name) { S.myChannels.delete(name.toLowerCase()); Sync.pushSoon(); }
   };
