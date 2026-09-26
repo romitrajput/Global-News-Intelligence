@@ -734,6 +734,23 @@ if (typeof document !== 'undefined') (function () {
     s = s.replace(/^@/, '').replace(/^https?:\/\/t\.me\//i, '');
     return s.trim();
   }
+  // Set whenever a Firestore call fails, so the UI can show *why* instead of just "check your connection" -
+  // check the browser console (F12) for the full detail this only summarises.
+  let lastChannelError = null;
+  async function describeFailure(r, e) {
+    if (r) {
+      let body = '';
+      try { body = await r.text(); } catch (_) { /* ignore */ }
+      let msg = '';
+      try { msg = (JSON.parse(body).error || {}).message || ''; } catch (_) { /* not JSON */ }
+      console.error('[QwickSignal] Firestore request failed: HTTP ' + r.status + (msg ? ' - ' + msg : ''), body);
+      if (r.status === 403 || r.status === 400) return 'Permission denied (HTTP ' + r.status + '). Check that firestore.rules has been published, and that the Firestore database exists.';
+      if (r.status === 404) return 'Not found (HTTP 404). Check the Firebase project ID is correct and the database exists.';
+      return 'HTTP ' + r.status + (msg ? ': ' + msg : '');
+    }
+    console.error('[QwickSignal] Firestore request failed (network/CORS):', e);
+    return 'Network error \u2013 the request never reached Firestore (offline, blocked, or CORS).';
+  }
   const Channels = {
     async propose(raw) {
       const name = normalizeChannel(raw);
@@ -749,7 +766,7 @@ if (typeof document !== 'undefined') (function () {
         }
         const fields = { channel: toFsValue(name), status: toFsValue('approved'), added_by: toFsValue(Sync.code || ''), added_at: toFsValue(new Date().toISOString()) };
         const r = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) { const why = await describeFailure(r, null); toast('Couldn\u2019t link that channel: ' + why); return false; }
         approvedChannelsCache = null;        // force the next channel-list render to pick up the new one
         S.myChannels.add(name.toLowerCase());
         Sync.pushSoon();
@@ -757,7 +774,8 @@ if (typeof document !== 'undefined') (function () {
         renderChannels();
         return true;
       } catch (e) {
-        toast('Couldn\u2019t reach the sync service to link that channel. Try again shortly.');
+        const why = await describeFailure(null, e);
+        toast('Couldn\u2019t link that channel: ' + why);
         return false;
       }
     },
@@ -768,10 +786,12 @@ if (typeof document !== 'undefined') (function () {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
         });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) { lastChannelError = await describeFailure(r, null); return null; }
+        lastChannelError = null;
         const rows = await r.json();
         return rows.filter(x => x.document).map(x => fsFieldsToObject(x.document.fields).channel).filter(Boolean);
       } catch (e) {
+        lastChannelError = await describeFailure(null, e);
         return null;      // unknown: the UI treats this as "couldn't load the list", not as "no channels"
       }
     },
@@ -1474,7 +1494,8 @@ Please explain:
     if (approvedChannelsCache === null) approvedChannelsCache = await Channels.listApproved();
     const linked = approvedChannelsCache || [];
     if (approvedChannelsCache === null) {
-      box.innerHTML = '<p class="lp-empty">Couldn\u2019t load the channel list right now \u2013 check your connection.</p>';
+      box.innerHTML = '<p class="lp-empty">Couldn\u2019t load the channel list right now.' +
+        (lastChannelError ? ' <br><span class="lp-errdetail">' + esc(lastChannelError) + '</span>' : ' Check your connection.') + '</p>';
       return;
     }
     if (!linked.length) {
