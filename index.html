@@ -144,9 +144,13 @@ input[type=search]{width:100%;min-height:44px;padding:0 14px;border-radius:10px;
 .entrywrap{position:relative;margin:0 0 10px}
 .entrywrap .entry{margin:0;touch-action:pan-y;will-change:transform;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 .swipebg{position:absolute;inset:0;border-radius:0 8px 8px 0;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-weight:800;font-size:14px;opacity:0;pointer-events:none;background:var(--surface)}
+.swipebg .sw-left,.swipebg .sw-right{display:none;align-items:center;gap:6px}
+/* A left swipe uncovers the panel from the right edge, so its "Remove" label sits there; a right swipe
+   uncovers it from the left edge, so "Save" sits there. Only the label matching the active direction shows. */
 .swipebg.left{justify-content:flex-end;background:var(--crit);color:#fff}
+.swipebg.left .sw-left{display:inline-flex}
 .swipebg.right{justify-content:flex-start;background:var(--accent);color:var(--accent-ink)}
-.swipebg span{display:inline-flex;align-items:center;gap:6px}
+.swipebg.right .sw-right{display:inline-flex}
 .swipebg svg{width:18px;height:18px}
 .quickacts{display:flex;gap:8px;margin:0 0 12px}
 .quickacts .btn{flex:1}
@@ -198,6 +202,10 @@ ol.steps li{margin:4px 0}
 
 /* Country and sector drop-downs: one row, two equal halves, same look as the search box */
 .filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 4px}
+.filters:has(#viewFilter){grid-template-columns:1fr 1fr;grid-template-areas:"country sector" "view view"}
+.filters #countryFilter{grid-area:country}
+.filters #sectorFilter{grid-area:sector}
+.filters #viewFilter{grid-area:view}
 .filter-dropdown{width:100%;min-width:0;min-height:44px;padding:0 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:14.5px;font-weight:600;text-overflow:ellipsis;cursor:pointer}
 .filter-dropdown.on{border-color:var(--accent)}
 .filter-dropdown:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -334,17 +342,22 @@ body.noscroll{overflow:hidden}
 
     <div class="tools">
       <input type="search" id="q" placeholder="Search headlines, companies, text" aria-label="Search">
-      <div class="strip" id="impchips"></div>
+      <div class="strip" id="impchips" hidden></div>
       <div id="filterBox" class="filters">
         <select id="countryFilter" class="filter-dropdown" aria-label="Filter by country"></select>
         <select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>
+        <select id="viewFilter" class="filter-dropdown" aria-label="Group by">
+          <option value="priority">By priority</option>
+          <option value="country">By country</option>
+          <option value="sector">By sector</option>
+        </select>
       </div>
       <div class="strip" id="countries" aria-label="Countries" hidden></div>
       <div class="strip" id="sectors" aria-label="Sectors" hidden></div>
     </div>
-    <div class="impbar" id="impbar" aria-hidden="true"></div>
+    <div class="impbar" id="impbar" aria-hidden="true" hidden></div>
 
-    <div class="seg" id="viewSeg" role="group" aria-label="Group by">
+    <div class="seg" id="viewSeg" role="group" aria-label="Group by" hidden>
       <button data-v="priority" aria-pressed="true">By priority</button>
       <button data-v="country" aria-pressed="false">By country</button>
       <button data-v="sector" aria-pressed="false">By sector</button>
