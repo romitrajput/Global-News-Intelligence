@@ -282,7 +282,7 @@ body.noscroll{overflow:hidden}
 
     <div class="lp-block">
       <h2 class="lp-h">Telegram</h2>
-      <p class="lp-sub">New channels are reviewed before they start appearing, so one person's choice can't add a source to everyone else's feed. Once approved, anyone can follow it.</p>
+      <p class="lp-sub">Add a public channel and it goes live for everyone on the next update (usually within about 15 minutes) &ndash; no review step. Anyone can follow a channel once it's been added.</p>
       <div class="lp-add">
         <input id="tgInput" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="t/channelname">
         <button id="tgAdd" class="btn primary">+ Add</button>
@@ -346,10 +346,18 @@ body.noscroll{overflow:hidden}
       <div id="filterBox" class="filters">
         <select id="countryFilter" class="filter-dropdown" aria-label="Filter by country"></select>
         <select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>
-        <select id="viewFilter" class="filter-dropdown" aria-label="Group by">
-          <option value="priority">By priority</option>
-          <option value="country">By country</option>
-          <option value="sector">By sector</option>
+        <select id="viewFilter" class="filter-dropdown" aria-label="Group by, or show only one priority">
+          <optgroup label="Group by">
+            <option value="priority">By priority</option>
+            <option value="country">By country</option>
+            <option value="sector">By sector</option>
+          </optgroup>
+          <optgroup label="Show only">
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </optgroup>
         </select>
       </div>
       <div class="strip" id="countries" aria-label="Countries" hidden></div>

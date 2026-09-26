@@ -1,4 +1,4 @@
-// QwickSignal Phase 3: Firestore Security Rules
+// QwickSignal: Firestore Security Rules
 //
 // There is no login, so these rules are the only thing standing between "anyone on the
 // internet" and this data. Two collections, two different trust models:
@@ -8,13 +8,15 @@
 //                       Rules here only stop abuse: wrong shape, oversized lists, or a
 //                       client trying to invent a new field.
 //
-//   qs_channels/{name}  One record per proposed Telegram channel. Anyone can propose a
-//                       NEW one (status must start "pending"). Nobody can approve their
-//                       own proposal from the client - approving means changing status
-//                       to "approved", and this rule set does not allow client updates at
-//                       all, so that only happens by hand in the Firebase console (or by
-//                       moving the channel into sources.yml, which the pipeline also
-//                       honours - see the note in index.html's Link Pages screen).
+//   qs_channels/{name}  One record per linked Telegram channel. Anyone can create a NEW
+//                       one directly as "approved" - there is no review step. The next
+//                       pipeline run (fetch_approved_channels() in pipeline.py) picks up
+//                       every "approved" doc and starts fetching it into the shared feed
+//                       for everyone. This is an intentional tradeoff (instant activation
+//                       over manual review) - see the note in index.html's Link Pages
+//                       screen. Once created, a channel document is immutable from the
+//                       client: nobody can rewrite someone else's entry or flip a channel
+//                       back to some other status.
 //
 // To use: Firebase console -> Firestore Database -> Rules -> paste this file -> Publish.
 
@@ -43,12 +45,13 @@ service cloud.firestore {
         name.matches('[a-z0-9_]{5,32}') &&
         request.resource.data.channel is string &&
         request.resource.data.channel.lower() == name &&
-        request.resource.data.status == 'pending' &&
+        request.resource.data.status == 'approved' &&
         request.resource.data.added_by is string && request.resource.data.added_by.size() <= 32 &&
         request.resource.data.added_at is string;
 
-      // No client update/delete on purpose: approving or rejecting a proposal is done by
-      // hand (Firebase console), so a proposer can never approve their own channel.
+      // No client update/delete: once a channel is linked, nobody (including whoever added
+      // it) can rewrite or remove that document from the app. Changing or retiring a
+      // channel is a by-hand operation in the Firebase console.
       allow update, delete: if false;
     }
   }

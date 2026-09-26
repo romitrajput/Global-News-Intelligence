@@ -564,8 +564,7 @@ if (typeof document !== 'undefined') (function () {
     syncCode: null,          // this device's sync code (also usable on other devices to share state)
     saved: new Set(),        // article ids saved by the user (Phase B, kept here so Sync can use it early)
     dismissed: new Set(),    // article ids dismissed by the user (Phase B)
-    myChannels: new Set(),   // Telegram channels this user has chosen to follow (empty = follow everything)
-    proposedChannels: []     // channels this user has proposed, with their pending/approved/rejected status
+    myChannels: new Set()    // Telegram channels this user has chosen to follow (empty = follow everything)
   };
 
   /* ---------- storage (IndexedDB) ---------- */
@@ -722,11 +721,12 @@ if (typeof document !== 'undefined') (function () {
     pushSoon: (() => { let t = null; return () => { clearTimeout(t); t = setTimeout(() => Sync.push(), 600); }; })()
   };
 
-  /* ---------- Telegram channel proposals (Link Pages, Phase A) ----------
-     A channel a user adds is not fetched right away: it is proposed, stored in its own Firestore document, and
-     only the person holding the repository can approve it (in the Firebase console, or by moving it into
-     sources.yml - see the note in the Link Pages screen). This keeps one person's channel choice from silently
-     adding a new source to everyone else's feed. Once approved, any user can choose to follow it. */
+  /* ---------- Telegram channel linking (Link Pages) ----------
+     Typing t/channelname adds it straight to the shared qs_channels collection as "approved" - the very next
+     pipeline run (see fetch_approved_channels() in pipeline.py) picks it up and starts fetching it into the
+     shared feed.json for everyone, no manual review step. This trades away the earlier "one person can't
+     silently add a source for everyone" protection in exchange for channels going live immediately - see the
+     note in the Link Pages screen. */
   const CHANNEL_RX = /^[a-z0-9_]{5,32}$/i;
   function normalizeChannel(raw) {
     let s = (raw || '').trim();
@@ -742,21 +742,22 @@ if (typeof document !== 'undefined') (function () {
         const url = `${FS_BASE}/qs_channels/${encodeURIComponent(name.toLowerCase())}?key=${FIREBASE.apiKey}`;
         const existing = await fetch(url, { cache: 'no-store' });
         if (existing.ok) {
-          const doc = await existing.json();
-          const status = fsFieldsToObject(doc.fields).status;
-          if (status === 'approved') { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); renderChannels(); toast('t/' + name + ' is already approved \u2014 added it to your feed.'); return true; }
-          toast('t/' + name + ' has already been proposed and is ' + (status || 'pending') + '.');
-          return false;
+          // Already linked by someone (or by this device, previously): just follow it, no need to write again.
+          S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); renderChannels();
+          toast('t/' + name + ' is already linked \u2014 added it to your feed.');
+          return true;
         }
-        const fields = { channel: toFsValue(name), status: toFsValue('pending'), added_by: toFsValue(Sync.code || ''), added_at: toFsValue(new Date().toISOString()) };
+        const fields = { channel: toFsValue(name), status: toFsValue('approved'), added_by: toFsValue(Sync.code || ''), added_at: toFsValue(new Date().toISOString()) };
         const r = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) });
         if (!r.ok) throw new Error('HTTP ' + r.status);
-        toast('t/' + name + ' sent for approval. It will start appearing once approved.');
-        S.proposedChannels.push({ channel: name, status: 'pending' });
+        approvedChannelsCache = null;        // force the next channel-list render to pick up the new one
+        S.myChannels.add(name.toLowerCase());
+        Sync.pushSoon();
+        toast('t/' + name + ' linked. The next pipeline run (within ~15 min) will start fetching it for everyone.');
         renderChannels();
         return true;
       } catch (e) {
-        toast('Couldn\u2019t reach the sync service to propose that channel. Try again shortly.');
+        toast('Couldn\u2019t reach the sync service to link that channel. Try again shortly.');
         return false;
       }
     },
@@ -1397,8 +1398,9 @@ Please explain:
         '<select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>';
     }
     if (box && !$('#viewFilter')) {
-      box.insertAdjacentHTML('beforeend', '<select id="viewFilter" class="filter-dropdown" aria-label="Group by">' +
-        '<option value="priority">By priority</option><option value="country">By country</option><option value="sector">By sector</option></select>');
+      box.insertAdjacentHTML('beforeend', '<select id="viewFilter" class="filter-dropdown" aria-label="Group by, or show only one priority">' +
+        '<optgroup label="Group by"><option value="priority">By priority</option><option value="country">By country</option><option value="sector">By sector</option></optgroup>' +
+        '<optgroup label="Show only"><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></optgroup></select>');
     }
   }
   function fillSelect(sel, allLabel, counts, current) {
@@ -1445,8 +1447,13 @@ Please explain:
     // segmented controls
     $$('#rangeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.f.range));
     $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.f.view));
+    // The dropdown does double duty: grouping mode (priority/country/sector) or a "show only this importance"
+    // filter (Critical/High/Medium/Low). Whichever is active decides what the select currently shows.
     const viewSel = $('#viewFilter');
-    if (viewSel && viewSel.value !== S.f.view) viewSel.value = S.f.view;
+    if (viewSel) {
+      const wanted = S.f.imp || S.f.view;
+      if (viewSel.value !== wanted) viewSel.value = wanted;
+    }
     const shown = filtered();
     const merged = shown.reduce((a, i) => a + Math.max(0, (i.sources || []).length - 1), 0);
     $('#briefMeta').textContent = shown.length + (shown.length === 1 ? ' item' : ' items') + (merged ? ', ' + merged + ' duplicate' + (merged > 1 ? 's' : '') + ' merged' : '');
@@ -1465,34 +1472,28 @@ Please explain:
     if (el) el.textContent = S.syncCode || '\u2026';
   }
 
-  let approvedChannelsCache = null;   // fetched once per visit; a manual Refresh isn't needed for a review queue this small
+  let approvedChannelsCache = null;   // re-fetched whenever a channel is linked, so the new one appears right away
   async function renderChannels() {
     const box = $('#tgList'), note = $('#tgSyncNote');
     if (!box) return;
     if (note) note.textContent = Sync.ready ? '' : 'Working from this device only until the sync service is reachable.';
     if (approvedChannelsCache === null) approvedChannelsCache = await Channels.listApproved();
-    const approved = approvedChannelsCache || [];
-    const rows = [];
-    approved.forEach(name => {
-      const following = S.myChannels.has(name.toLowerCase());
-      rows.push({ name, status: 'approved', following });
-    });
-    S.proposedChannels.forEach(p => {
-      if (!approved.some(a => a.toLowerCase() === p.channel.toLowerCase())) rows.push({ name: p.channel, status: p.status, following: false });
-    });
+    const linked = approvedChannelsCache || [];
     if (approvedChannelsCache === null) {
       box.innerHTML = '<p class="lp-empty">Couldn\u2019t load the channel list right now \u2013 check your connection.</p>';
       return;
     }
-    if (!rows.length) {
-      box.innerHTML = '<p class="lp-empty">No channels yet. Add one above \u2013 once it\u2019s approved you can follow it here.</p>';
+    if (!linked.length) {
+      box.innerHTML = '<p class="lp-empty">No channels yet. Add one above to start following it.</p>';
       return;
     }
-    box.innerHTML = rows.map(r => `<div class="lp-row">
-      <span class="name">t/${esc(r.name)}</span>
-      <span class="status ${r.status}">${esc(r.status)}</span>
-      ${r.status === 'approved' ? `<button class="follow${r.following ? ' on' : ''}" data-act="tgfollow" data-v="${esc(r.name)}">${r.following ? 'Following' : 'Follow'}</button>` : ''}
-    </div>`).join('');
+    box.innerHTML = linked.map(name => {
+      const following = S.myChannels.has(name.toLowerCase());
+      return `<div class="lp-row">
+      <span class="name">t/${esc(name)}</span>
+      <button class="follow${following ? ' on' : ''}" data-act="tgfollow" data-v="${esc(name)}">${following ? 'Following' : 'Follow'}</button>
+    </div>`;
+    }).join('');
   }
   async function renderExport() {
     const n = S.items.length;
@@ -1691,7 +1692,11 @@ Please explain:
     if (!t || !t.id) return;
     if (t.id === 'countryFilter') { S.f.country = t.value; renderControls(); renderList(); }
     else if (t.id === 'sectorFilter') { S.f.sector = t.value; renderControls(); renderList(); }
-    else if (t.id === 'viewFilter') { S.f.view = t.value; renderControls(); renderList(); }
+    else if (t.id === 'viewFilter') {
+      if (E.IMP_ORDER.includes(t.value)) { S.f.imp = t.value; S.f.view = 'priority'; }
+      else { S.f.imp = ''; S.f.view = t.value; }
+      renderControls(); renderList();
+    }
   });
   document.addEventListener('keydown', ev => {
     const box = $('#videoModal');

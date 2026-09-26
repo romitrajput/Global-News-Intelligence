@@ -173,8 +173,9 @@ FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal-sync")
 
 
 def fetch_approved_channels() -> list[str]:
-    """Telegram channels users proposed from the app's Link Pages screen and that have since been approved
-    (see app.js: Channels.propose / the note in index.html about approving in Firebase or sources.yml).
+    """Telegram channels linked from the app's Link Pages screen (see app.js: Channels.propose). A channel is
+    written straight to Firestore with status "approved" - there is no manual review step - so this simply
+    returns every channel currently marked approved, and the next pipeline run starts fetching it for everyone.
     Never raises: if the sync service can't be reached, the pipeline simply uses sources.yml alone, as before."""
     url = (f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT}/databases/(default)/documents:runQuery"
            f"?key={FIREBASE_API_KEY}")
