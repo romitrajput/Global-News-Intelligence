@@ -609,8 +609,8 @@ if (typeof document !== 'undefined') (function () {
   const FIREBASE = {
     // Public web config: safe to ship in client code. Firestore access is controlled by server-side Security
     // Rules (see firestore.rules in the repo), not by keeping this object secret.
-    apiKey: 'AIzaSyExampleQwickSignalPublicWebConfig00',
-    projectId: 'qwicksignal-sync'
+    apiKey: 'AIzaSyBTix4TmUn9oVQrX0ByPra4FissOfAHefY',
+    projectId: 'qwicksignal'
   };
   const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents`;
 
