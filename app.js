@@ -782,7 +782,12 @@ if (typeof document !== 'undefined') (function () {
 
     async listApproved() {
       try {
-        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`.replace('/documents:runQuery', ':runQuery'), {
+        // The Firestore REST runQuery endpoint is POST {parent}:runQuery where {parent} is the "...documents"
+        // path itself (not the path with "/documents" stripped off) - FS_BASE already ends in "/documents", so
+        // appending ":runQuery" directly is correct. An earlier .replace() here used to strip that segment out,
+        // producing a malformed URL that Firestore could never resolve - every "Couldn't load the channel list"
+        // error traced back to this.
+        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
         });
@@ -1546,7 +1551,7 @@ Please explain:
   function exportCSV() {
     const items = all().filter(i => inRange(i, S.exportRange)).sort(byPriority);
     if (!items.length) { toast('Nothing to export for that period.'); return; }
-    download('global-intelligence-' + dayISO(Date.now()) + '.csv', E.toCSV(items), 'text/csv;charset=utf-8');
+    download('qwicksignal-' + dayISO(Date.now()) + '.csv', E.toCSV(items), 'text/csv;charset=utf-8');
     toast('CSV saved to Downloads.');
   }
 
@@ -1579,13 +1584,10 @@ Please explain:
 
     // masthead
     doc.setFillColor(...INK); doc.rect(0, 0, PW, 92, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(23); doc.text('Global Intelligence Report', M, 44);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(23); doc.text('QwickSignal Report', M, 44);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
     doc.text(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + '   |   ' + RANGE_LABEL[S.exportRange], M, 64);
     y = 116;
-    const cnt = {}; E.IMP_ORDER.forEach(l => cnt[l] = items.filter(i => i.importance === l).length);
-    const dups = items.reduce((a, i) => a + Math.max(0, (i.sources || []).length - 1), 0);
-    put(items.length + ' developments: ' + E.IMP_ORDER.map(l => cnt[l] + ' ' + l.toLowerCase()).join(', ') + (dups ? '. ' + dups + ' duplicate report' + (dups > 1 ? 's' : '') + ' merged.' : '.'), { size: 10, color: GREY, after: 8 });
 
     const top = items.filter(i => i.importance === 'Critical' || i.importance === 'High');
     if (top.length) {
@@ -1612,9 +1614,9 @@ Please explain:
     const pages = doc.getNumberOfPages();
     for (let p = 1; p <= pages; p++) {
       doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120, 130, 140);
-      doc.text('Global News Intelligence, generated on device   |   page ' + p + ' of ' + pages, PW / 2, PH - 22, { align: 'center' });
+      doc.text('QwickSignal, generated on device   |   page ' + p + ' of ' + pages, PW / 2, PH - 22, { align: 'center' });
     }
-    doc.save('Global-Intelligence-' + dayISO(Date.now()) + '.pdf');
+    doc.save('QwickSignal-Report-' + dayISO(Date.now()) + '.pdf');
     toast('PDF saved to Downloads.');
   }
 
@@ -1860,20 +1862,8 @@ Please explain:
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - S.lastLive >= AUTO_REFRESH_MS) loadLive(); });
   setInterval(() => { if (!document.hidden && Date.now() - S.lastLive >= AUTO_REFRESH_MS) loadLive(); }, 60e3);
 
-  /* ---------- install and share ---------- */
-  let deferredInstall = null;
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault(); deferredInstall = e;
-    $$('[data-install]').forEach(b => b.hidden = false);
-  });
-  window.addEventListener('appinstalled', () => { deferredInstall = null; $$('[data-install]').forEach(b => b.hidden = true); toast('Installed. Open it from your home screen.'); });
-  $$('[data-install]').forEach(b => b.addEventListener('click', async () => {
-    if (!deferredInstall) { toast('Open the browser menu and choose Install app or Add to Home screen.'); return; }
-    deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null;
-    $$('[data-install]').forEach(x => x.hidden = true);
-  }));
-  if (standalone) $('#installCard').hidden = true;
+  // The install-as-app prompt (beforeinstallprompt/data-install) was removed from the Export screen along with
+  // its UI; the browser's own install affordance (address-bar icon or menu item) still works without it.
 
   /* ---------- start ---------- */
   (async function start() {
