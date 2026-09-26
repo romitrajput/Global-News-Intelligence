@@ -59,10 +59,10 @@ RANK = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
 DEFAULTS = {
     #"extraction_model": "claude-haiku-4-5-20251001",
     #"briefing_model": "claude-sonnet-5",
-    "max_new_per_run": 150,    # posts sent to the AI per run; the rest wait for the next run
+    "max_new_per_run": 100,    # posts sent to the AI per run; the rest wait for the next run
     "max_age_hours": 48,      # ignore posts older than this
     "keep_days": 7,           # how long items stay in feed.json
-    "max_items": 2000,
+    "max_items": 600,
     "min_chars": 60,          # skip very short posts
     "batch_size": 20,
     "telegram_pages": 5,      # pages of ~20 posts fetched per public channel
@@ -168,8 +168,8 @@ def jaccard(a: set, b: set) -> float:
 # meant to be public; Firestore's own Security Rules are what keep the data safe, not secrecy of this config.
 # Can be overridden with the FIREBASE_API_KEY / FIREBASE_PROJECT_ID repository variables (Settings -> Secrets
 # and variables -> Actions -> Variables) so the real project ID never has to be edited into this file by hand.
-FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyBTix4TmUn9oVQrX0ByPra4FissOfAHefY")
-FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal")
+FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyExampleQwickSignalPublicWebConfig00")
+FIREBASE_PROJECT = os.environ.get("FIREBASE_PROJECT_ID", "qwicksignal-sync")
 
 
 def fetch_approved_channels() -> list[str]:

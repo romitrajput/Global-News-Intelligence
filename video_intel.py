@@ -48,8 +48,8 @@ DEFAULTS = {
         "recency": 0.10,                        #   published close to the story
         "source": 0.10,                         #   publisher quality
     },
-    "video_max_age_hours": 1,                  # only stories newer than this get a video search
-    "video_max_per_run": 1,                     # searches per 15-minute run (protects quota and run time)
+    "video_max_age_hours": 36,                  # only stories newer than this get a video search
+    "video_max_per_run": 8,                     # searches per 15-minute run (protects quota and run time)
     "video_max_attempts": 3,                    # tries per story before giving up
     "video_retry_minutes": 120,                 # wait between tries (videos often appear hours after the news)
     "video_lookback_hours": 24,                 # search window that starts this long before the story
@@ -57,14 +57,14 @@ DEFAULTS = {
     "video_max_seconds": 2700,                  # ignore videos longer than this (45 min: full shows)
     "video_max_results": 8,                     # candidates fetched per search
     "video_region_code": "IN",                  # viewer's country: videos blocked there are skipped
-    "video_daily_unit_budget": 90,            # YouTube gives 10,000 units a day; a search costs 100
+    "video_daily_unit_budget": 8000,            # YouTube gives 10,000 units a day; a search costs 100
     "video_time_budget_seconds": 120,           # stop searching after this long in one run
     "video_revalidate_hours": 6,                # how often attached videos are re-checked (deleted, private)
     "video_trusted_publishers": [],             # extra channel names to trust fully, e.g. ["Sansad TV"]
 }
 
 YT_API = "https://www.googleapis.com/youtube/v3"
-COST_SEARCH, COST_DETAILS = 1, 1
+COST_SEARCH, COST_DETAILS = 100, 1
 IMP_RANK = {"Critical": 3, "High": 2, "Medium": 1, "Low": 0}
 
 

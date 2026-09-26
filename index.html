@@ -140,6 +140,18 @@ input[type=search]{width:100%;min-height:44px;padding:0 14px;border-radius:10px;
 .empty{padding:28px 4px;text-align:left}
 .empty p{margin:0 0 10px;max-width:46ch}
 
+/* swipe gestures + quick actions (Phase B) */
+.entrywrap{position:relative;margin:0 0 10px}
+.entrywrap .entry{margin:0;touch-action:pan-y;will-change:transform;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+.swipebg{position:absolute;inset:0;border-radius:0 8px 8px 0;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-weight:800;font-size:14px;opacity:0;pointer-events:none;background:var(--surface)}
+.swipebg.left{justify-content:flex-end;background:var(--crit);color:#fff}
+.swipebg.right{justify-content:flex-start;background:var(--accent);color:var(--accent-ink)}
+.swipebg span{display:inline-flex;align-items:center;gap:6px}
+.swipebg svg{width:18px;height:18px}
+.quickacts{display:flex;gap:8px;margin:0 0 12px}
+.quickacts .btn{flex:1}
+.unsave{border-top:0;padding:4px 0 0;font-size:13px}
+
 /* log */
 .log p{margin:6px 0;padding-left:12px;border-left:4px solid var(--low);font-size:14px}
 .log p.ok{border-color:var(--accent)} .log p.warn{border-color:var(--high)} .log p.err{border-color:var(--crit)}
@@ -235,7 +247,8 @@ body.noscroll{overflow:hidden}
 .tabs button[aria-selected=true]{color:var(--accent)}
 .tabs button[aria-selected=true]::before{content:"";position:absolute;left:22%;right:22%;top:0;height:3px;background:var(--accent);border-radius:0 0 3px 3px}
 #toast{position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;max-width:520px;margin:0 auto;background:var(--ink);color:var(--paper);padding:12px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s,transform .2s}
-#toast.show{opacity:1;transform:none}
+#toast.show{opacity:1;transform:none;pointer-events:auto}
+#toast .link.inline{display:inline;width:auto;padding:0;border:0;margin-left:8px;color:var(--paper);text-decoration:underline;font-weight:800}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -341,6 +354,13 @@ body.noscroll{overflow:hidden}
     <div id="list"></div>
   </section>
 
+  <!-- SAVED -->
+  <section id="view-saved" class="view" hidden>
+    <div class="viewhead"><h1>Saved</h1></div>
+    <p class="lede">Stories you've saved stay here even after they'd normally drop off Signals after 24 hours.</p>
+    <div id="savedList"></div>
+  </section>
+
   <!-- EXPORT -->
   <section id="view-export" class="view" hidden>
     <h1>Export</h1>
@@ -388,6 +408,7 @@ body.noscroll{overflow:hidden}
 <nav class="tabs" role="tablist" aria-label="Sections">
   <button role="tab" data-tab="inbox" aria-selected="true">Link Pages</button>
   <button role="tab" data-tab="brief" aria-selected="false">Signals</button>
+  <button role="tab" data-tab="saved" aria-selected="false">Saved</button>
   <button role="tab" data-tab="export" aria-selected="false">Export</button>
 </nav>
 <div id="toast" role="status" aria-live="polite"></div>

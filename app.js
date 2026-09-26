@@ -609,8 +609,8 @@ if (typeof document !== 'undefined') (function () {
   const FIREBASE = {
     // Public web config: safe to ship in client code. Firestore access is controlled by server-side Security
     // Rules (see firestore.rules in the repo), not by keeping this object secret.
-    apiKey: 'AIzaSyBTix4TmUn9oVQrX0ByPra4FissOfAHefY',
-    projectId: 'qwicksignal'
+    apiKey: 'AIzaSyExampleQwickSignalPublicWebConfig00',
+    projectId: 'qwicksignal-sync'
   };
   const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents`;
 
@@ -762,60 +762,22 @@ if (typeof document !== 'undefined') (function () {
     },
 
     async listApproved() {
-  try {
-    const names = [];
-    let pageToken = '';
-
-    do {
-      const url = new URL(`${FS_BASE}/qs_channels`);
-      url.searchParams.set('key', FIREBASE.apiKey);
-      url.searchParams.set('pageSize', '100');
-
-      if (pageToken) {
-        url.searchParams.set('pageToken', pageToken);
+      try {
+        const r = await fetch(`${FS_BASE}:runQuery?key=${FIREBASE.apiKey}`.replace('/documents:runQuery', ':runQuery'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'qs_channels' }], where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: toFsValue('approved') } } } })
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const rows = await r.json();
+        return rows.filter(x => x.document).map(x => fsFieldsToObject(x.document.fields).channel).filter(Boolean);
+      } catch (e) {
+        return null;      // unknown: the UI treats this as "couldn't load the list", not as "no channels"
       }
+    },
 
-      const r = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        cache: 'no-store'
-      });
-
-      const text = await r.text();
-
-      if (!r.ok) {
-        console.error(
-          'QwickSignal Firestore channel list failed:',
-          r.status,
-          text
-        );
-        throw new Error(`Firestore HTTP ${r.status}: ${text}`);
-      }
-
-      const data = text ? JSON.parse(text) : {};
-
-      for (const doc of (data.documents || [])) {
-        const row = fsFieldsToObject(doc.fields || {});
-
-        if (row.status === 'approved' && row.channel) {
-          names.push(row.channel);
-        }
-      }
-
-      pageToken = data.nextPageToken || '';
-
-    } while (pageToken);
-
-    return [...new Set(names)];
-
-  } catch (e) {
-    console.error('QwickSignal listApproved failed:', e);
-    return null;
-  }
-},
-
+    follow(name) { S.myChannels.add(name.toLowerCase()); Sync.pushSoon(); },
+    unfollow(name) { S.myChannels.delete(name.toLowerCase()); Sync.pushSoon(); }
+  };
 
   /* ---------- helpers ---------- */
   let toastTimer;
@@ -823,6 +785,12 @@ if (typeof document !== 'undefined') (function () {
     const t = $('#toast');
     t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3600);
+  }
+  // Same as toast(), but the message can carry inline markup (e.g. an Undo button) instead of plain text.
+  function toastAction(html, ms) {
+    const t = $('#toast');
+    t.innerHTML = html; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3600);
   }
   const tick = () => new Promise(r => setTimeout(r, 0));
   const newId = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1007,10 +975,27 @@ if (typeof document !== 'undefined') (function () {
     const m = src && /^Telegram:\s*(.+)$/i.exec(src.name || '');
     return m ? m[1].trim().toLowerCase() : null;
   }
+
+  /* ---------- 24h lifecycle (Phase B) ----------
+     An item's status is computed on the fly from S.saved / S.dismissed / its age, never stored as a separate
+     expiring field, so it can never drift out of sync with those sets.
+       active     shows in Signals, normal lifecycle
+       saved      always shows in Saved, regardless of age
+       dismissed  hidden everywhere (soft-delete; Undo puts it back for a few seconds after dismissing)
+       expired    older than 24h, not saved, not dismissed - simply falls off the Signals feed */
+  const LIFECYCLE_MS = 24 * 3600e3;
+  function itemStatus(it) {
+    if (S.dismissed.has(it.id)) return 'dismissed';
+    if (S.saved.has(it.id)) return 'saved';
+    return (Date.now() - it.addedAt) < LIFECYCLE_MS ? 'active' : 'expired';
+  }
+
   function filtered(skip) {
     const f = S.f, q = f.q.trim().toLowerCase();
     return all().filter(it => {
-      if (!inRange(it, f.range)) return false;
+      const st = itemStatus(it);
+      if (st === 'dismissed' || st === 'expired') return false;   // Saved tab reads S.saved directly, not this list
+      if (st !== 'saved' && !inRange(it, f.range)) return false;   // a saved item stays visible even outside the date range
       if (S.myChannels.size && it.live) {           // an empty "followed" list means "show everything" (no filter yet chosen)
         const ch = itemChannel(it);
         if (ch && !S.myChannels.has(ch)) return false;
@@ -1021,6 +1006,37 @@ if (typeof document !== 'undefined') (function () {
       if (q && !(it.headline + ' ' + it.summary + ' ' + it.country + ' ' + it.sector + ' ' + it.subsector + ' ' + (it.companies || []).join(' ') + ' ' + it.text).toLowerCase().includes(q)) return false;
       return true;
     });
+  }
+
+  function savedItems() {
+    return all().filter(it => S.saved.has(it.id)).sort(byPriority);
+  }
+
+  function saveItem(id) {
+    if (S.saved.has(id)) return;
+    S.saved.add(id); S.dismissed.delete(id);
+    Sync.pushSoon();
+    renderAll();
+    toast('Saved. Find it any time under Saved.');
+  }
+  function unsaveItem(id) {
+    S.saved.delete(id);
+    Sync.pushSoon();
+    renderAll();
+  }
+  function dismissItem(id) {
+    S.saved.delete(id);
+    S.dismissed.add(id);
+    Sync.pushSoon();
+    renderAll();
+    toastAction('Dismissed. <button class="link inline" data-act="undo-dismiss" data-id="' + esc(id) + '">Undo</button>', 5000);
+  }
+  function undoDismiss(id) {
+    S.dismissed.delete(id);
+    Sync.pushSoon();
+    renderAll();
+    clearTimeout(toastTimer);
+    $('#toast').classList.remove('show');
   }
 
   /* ---------- Video (Phase 2.5) ----------
@@ -1107,7 +1123,144 @@ if (typeof document !== 'undefined') (function () {
     </article>`;
   }
 
-  
+  // Swipe backgrounds only apply on the Signals list (swipe left = dismiss, right = save); the Saved tab has
+  // its own card without swipe, since "swipe to dismiss" doesn't make sense once something is already saved.
+  function entryWrapHTML(it) {
+    return `<div class="entrywrap">
+      <div class="swipebg" aria-hidden="true">
+        <span class="sw-left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg> Dismiss</span>
+        <span class="sw-right">Save <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3z" fill="currentColor"/></svg></span>
+      </div>
+      ${entryHTML(it)}
+    </div>`;
+  }
+
+  function savedCardHTML(it) {
+    const open = S.open.has(it.id);
+    const n = (it.sources || []).length;
+    return `<article class="entry imp-${it.importance.toLowerCase()}${open ? ' open' : ''}" data-id="${it.id}">
+      <div class="where"><span>${flagOf(it.country)} ${esc(it.country)}</span><span class="sect">${esc(it.sector)}${it.subsector ? ' / ' + esc(it.subsector) : ''}</span></div>
+      <h3 class="hl">${esc(it.headline)}</h3>
+      ${it.summary ? `<p class="sum">${esc(it.summary)}</p>` : ''}
+      ${videoHTML(it)}
+      <div class="foot">${n > 1 ? `<span>${n} sources</span>` : ''}<span>${ago(it.addedAt)}</span></div>
+      ${open ? detailsHTML(it, { inSaved: true }) : ''}
+      ${open ? '' : `<button class="link unsave" data-act="unsave" data-id="${esc(it.id)}">Remove from Saved</button>`}
+    </article>`;
+  }
+
+  /* ---------- swipe gestures (Phase B) ----------
+     Pointer Events (not touch-only) so both a phone swipe and a mouse drag work the same way.
+     Left = dismiss, right = save. A small accidental move snaps back with no effect; a vertical scroll is
+     detected early and cancels the gesture cleanly so scrolling the list never gets hijacked.
+     SWIPE.justSwiped suppresses the ordinary "tap card to open" click handler that otherwise fires right after
+     the pointerup of any drag - including a small one that snapped back, and including a vertical scroll that
+     started inside a card - so a swipe or a scroll can never be misread as a tap-to-open. */
+  const SWIPE = { active: null, startX: 0, startY: 0, dx: 0, locked: null, pointerId: null, justSwiped: false, renderPending: false };
+  const SWIPE_THRESHOLD = 90;   // px of horizontal movement needed to commit to dismiss/save
+  const SWIPE_LOCK = 12;        // px of movement before deciding this gesture is horizontal vs. vertical scroll
+
+  function markJustSwiped() {
+    SWIPE.justSwiped = true;
+    setTimeout(() => { SWIPE.justSwiped = false; }, 350);
+  }
+
+  // A card can be replaced in the DOM (renderList/renderAll run on almost every action) while a gesture is
+  // still technically "captured" on it. Releasing explicitly here means the next gesture always starts clean,
+  // rather than ever depending on the browser noticing the old element was removed from the document.
+  function releaseCapture(card) {
+    if (card && SWIPE.pointerId != null) {
+      try { card.releasePointerCapture(SWIPE.pointerId); } catch (e) { /* already released, or the element is gone - both fine */ }
+    }
+    SWIPE.pointerId = null;
+  }
+
+  function swipeReset(card) {
+    if (card) {
+      card.style.transition = 'transform .22s ease, opacity .22s ease';
+      card.style.transform = '';
+      card.style.opacity = '';
+    }
+    const wrap = card && card.closest('.entrywrap');
+    if (wrap) { const p = wrap.querySelector('.swipebg'); if (p) p.style.opacity = '0'; }
+    releaseCapture(card);
+    SWIPE.active = null; SWIPE.dx = 0; SWIPE.locked = null;
+    flushPendingRender();
+  }
+
+  // A background refresh may have tried to re-render #list while a gesture was in progress (see renderList());
+  // once the gesture is fully over, catch up on that render so the list doesn't go stale.
+  function flushPendingRender() {
+    if (SWIPE.renderPending && !SWIPE.active) { SWIPE.renderPending = false; renderList(); }
+  }
+
+  function onSwipeStart(ev) {
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    const card = ev.target.closest('.entry');
+    if (!card || ev.target.closest('select,button,a,label,.details,.btn-watch,.btn-ai')) return;
+    // A fresh gesture on a new element: make sure no stale capture from a previous, since-removed card lingers.
+    if (SWIPE.active && SWIPE.active !== card) releaseCapture(SWIPE.active);
+    SWIPE.active = card; SWIPE.startX = ev.clientX; SWIPE.startY = ev.clientY; SWIPE.dx = 0; SWIPE.locked = null;
+    SWIPE.pointerId = ev.pointerId;
+    card.style.transition = 'none';
+    try { card.setPointerCapture(ev.pointerId); } catch (e) { /* not critical - move/end still fire via bubbling */ }
+  }
+
+  function onSwipeMove(ev) {
+    if (!SWIPE.active) return;
+    const dx = ev.clientX - SWIPE.startX, dy = ev.clientY - SWIPE.startY;
+    if (SWIPE.locked === null && (Math.abs(dx) > SWIPE_LOCK || Math.abs(dy) > SWIPE_LOCK)) {
+      SWIPE.locked = Math.abs(dx) > Math.abs(dy);
+      if (!SWIPE.locked) {
+        // Vertical scroll: let the browser handle it, and mark this as "just swiped" so the trailing click
+        // (which always follows a pointerdown+pointerup, even one that was really a scroll) doesn't open the card.
+        markJustSwiped();
+        swipeReset(SWIPE.active);
+        return;
+      }
+    }
+    if (!SWIPE.locked) return;
+    ev.preventDefault();
+    SWIPE.dx = dx;
+    const card = SWIPE.active;
+    card.style.transform = `translateX(${dx}px)`;
+    const wrap = card.closest('.entrywrap');
+    const panel = wrap && wrap.querySelector('.swipebg');
+    if (panel) {
+      const frac = Math.min(1, Math.abs(dx) / SWIPE_THRESHOLD);
+      panel.style.opacity = String(frac);
+      panel.classList.toggle('left', dx < 0);
+      panel.classList.toggle('right', dx > 0);
+    }
+  }
+
+  function onSwipeEnd(ev) {
+    if (!SWIPE.active) return;
+    const card = SWIPE.active, dx = SWIPE.dx, dy = ev.clientY - SWIPE.startY, id = card.dataset.id;
+    const moved = Math.abs(dx) > SWIPE_LOCK || Math.abs(dy) > SWIPE_LOCK;
+    if (!SWIPE.locked || Math.abs(dx) < SWIPE_THRESHOLD) {
+      if (moved) markJustSwiped();     // below threshold but still a real drag: snapping back should not open the card either
+      swipeReset(card);
+      return;
+    }
+    markJustSwiped();
+    card.style.transition = 'transform .22s ease, opacity .22s ease';
+    card.style.transform = `translateX(${dx < 0 ? '-120%' : '120%'})`;
+    card.style.opacity = '0';
+    releaseCapture(card);
+    SWIPE.active = null;
+    setTimeout(() => { if (dx < 0) dismissItem(id); else saveItem(id); }, 200);
+  }
+
+  $('#list').addEventListener('pointerdown', onSwipeStart);
+  $('#list').addEventListener('pointermove', onSwipeMove);
+  $('#list').addEventListener('pointerup', onSwipeEnd);
+  $('#list').addEventListener('pointercancel', () => swipeReset(SWIPE.active));
+  // Once a horizontal drag is under way, stop the browser's own native "drag this element" gesture from
+  // starting - if it does, it swallows the pointer (a pointercancel with no matching pointerup) and the swipe
+  // silently aborts, leaving the card behaving as if nothing happened.
+  $('#list').addEventListener('dragstart', ev => { if (SWIPE.active) ev.preventDefault(); });
+
   /* ---------- Analyze with AI (headline is the only thing sent) ---------- */
   function aiPrompt(it) {
     return `Analyze this news/event:
@@ -1143,11 +1296,19 @@ Please explain:
   }
 
 
-  function detailsHTML(it) {
+  function detailsHTML(it, opts) {
+    const inSaved = !!(opts && opts.inSaved);
     const rel = (it.related || []).map(id => all().find(x => x.id === id)).filter(Boolean);
     const opt = (list, cur) => list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
     const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+    const quickacts = inSaved
+      ? `<div class="quickacts"><button class="btn small" data-act="unsave" data-id="${esc(it.id)}">Remove from Saved</button></div>`
+      : `<div class="quickacts">
+          <button class="btn small" data-act="save" data-id="${esc(it.id)}">${S.saved.has(it.id) ? 'Saved ✓' : 'Save'}</button>
+          <button class="btn small danger" data-act="dismiss" data-id="${esc(it.id)}">Dismiss</button>
+        </div>`;
     return `<div class="details">
+      ${quickacts}
       ${aiLinks(it)}
       ${it.why ? `<p class="why"><b>Why it matters</b> ${esc(it.why)}</p>` : ''}
       ${(it.facts || []).length ? `<ul class="facts">${it.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
@@ -1177,6 +1338,10 @@ Please explain:
   }
 
   function renderList() {
+    // A background refresh (the initial live-feed load, or the 60s auto-poll) can land while the user has a
+    // finger down on a card. Rebuilding #list's innerHTML underneath an in-progress gesture would yank the DOM
+    // node out from under the pointer capture, so a re-render is deferred until the gesture ends.
+    if (SWIPE.active) { SWIPE.renderPending = true; return; }
     const items = filtered().sort(byPriority);
     const box = $('#list');
     if (!all().length) {
@@ -1184,23 +1349,40 @@ Please explain:
       return;
     }
     if (!items.length) {
-      box.innerHTML = `<div class="empty"><p>No items match these filters.</p><button class="btn" data-act="reset">Clear filters</button></div>`;
+      // A real active filter (country/sector/importance/search) gets "Clear filters"; the 7-day default range
+      // hiding items that simply expired or were dismissed is not a "filter" the person set, so it gets a plainer
+      // message instead of a button that clears nothing meaningful.
+      const hasRealFilter = !!(S.f.country || S.f.sector || S.f.imp || S.f.q);
+      box.innerHTML = hasRealFilter
+        ? `<div class="empty"><p>No items match these filters.</p><button class="btn" data-act="reset">Clear filters</button></div>`
+        : `<div class="empty"><p>Nothing here right now.</p><p>Stories move here as they come in, and drop off the list automatically after 24 hours unless you save them.</p></div>`;
       return;
     }
     let html = '';
     if (S.f.view === 'priority') {
       E.IMP_ORDER.forEach(lv => {
         const g = items.filter(i => i.importance === lv);
-        if (g.length) html += groupHead(IMP_TITLES[lv], g.length, IMP_VAR[lv]) + g.map(entryHTML).join('');
+        if (g.length) html += groupHead(IMP_TITLES[lv], g.length, IMP_VAR[lv]) + g.map(entryWrapHTML).join('');
       });
     } else {
       const key = S.f.view === 'country' ? 'country' : 'sector';
       const map = new Map();
       items.forEach(i => { if (!map.has(i[key])) map.set(i[key], []); map.get(i[key]).push(i); });
       [...map.entries()].sort((a, b) => E.impRank(b[1][0].importance) - E.impRank(a[1][0].importance) || b[1].length - a[1].length)
-        .forEach(([k, g]) => { html += groupHead((key === 'country' ? flagOf(k) + ' ' : '') + esc(k), g.length) + g.map(entryHTML).join(''); });
+        .forEach(([k, g]) => { html += groupHead((key === 'country' ? flagOf(k) + ' ' : '') + esc(k), g.length) + g.map(entryWrapHTML).join(''); });
     }
     box.innerHTML = html;
+  }
+
+  function renderSaved() {
+    const box = $('#savedList');
+    if (!box) return;
+    const items = savedItems();
+    if (!items.length) {
+      box.innerHTML = `<div class="empty"><p>Nothing saved yet.</p><p>Swipe a story right, or tap Save, to keep it here past the normal 24-hour window.</p></div>`;
+      return;
+    }
+    box.innerHTML = items.map(savedCardHTML).join('');
   }
 
   /* ---------- country and sector drop-downs ---------- */
@@ -1311,6 +1493,7 @@ Please explain:
   }
   function renderAll() {
     renderControls(); renderList(); renderExport();
+    if (S.tab === 'saved') renderSaved();
     // keep the just-added cards in sync when they are toggled
   }
 
@@ -1322,6 +1505,7 @@ Please explain:
     if (name !== 'inbox' || true) window.scrollTo(0, 0);
     if (name === 'brief') { renderControls(); renderList(); }
     if (name === 'export') renderExport();
+    if (name === 'saved') renderSaved();
   }
 
   /* ---------- export ---------- */
@@ -1410,6 +1594,7 @@ Please explain:
 
   /* ---------- events ---------- */
   document.addEventListener('click', async ev => {
+    if (SWIPE.justSwiped) { ev.preventDefault(); ev.stopPropagation(); return; }
     const el = ev.target.closest('[data-act],[data-tab],[data-v]');
     if (el && el.dataset.tab) { setTab(el.dataset.tab); return; }
     if (el && el.closest('#rangeSeg')) { S.f.range = el.dataset.v; renderControls(); renderList(); return; }
@@ -1439,6 +1624,10 @@ Please explain:
         if (S.myChannels.has(name.toLowerCase())) Channels.unfollow(name); else Channels.follow(name);
         renderChannels(); renderAll();
       }
+      else if (act === 'save') { saveItem(el.dataset.id); }
+      else if (act === 'unsave') { unsaveItem(el.dataset.id); }
+      else if (act === 'dismiss') { dismissItem(el.dataset.id); }
+      else if (act === 'undo-dismiss') { undoDismiss(el.dataset.id); }
       else if (act === 'goto') {
         const id = el.dataset.id;
         S.f = Object.assign(S.f, { country: '', sector: '', imp: '', q: '', range: 'all' }); $('#q').value = '';
@@ -1460,11 +1649,11 @@ Please explain:
     }
     // tap on an entry toggles its details
     const card = ev.target.closest('.entry');
-    if (card && !ev.target.closest('select,button,a,label')) {
+    if (card && !ev.target.closest('select,button,a,label,.details')) {
       const id = card.dataset.id;
       if (S.open.has(id)) S.open.delete(id); else S.open.add(id);
       const it = all().find(i => i.id === id);
-      if (it) card.outerHTML = entryHTML(it);
+      if (it) card.outerHTML = card.closest('#savedList') ? savedCardHTML(it) : entryHTML(it);
     }
   });
 
