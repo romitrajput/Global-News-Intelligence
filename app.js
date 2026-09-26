@@ -1306,12 +1306,12 @@ Please explain:
     const rel = (it.related || []).map(id => all().find(x => x.id === id)).filter(Boolean);
     const opt = (list, cur) => list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
     const row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+    // On Signals, Save/Dismiss are swipe-only now (swipe right/left on the card) - no buttons here, so there's
+    // nothing to duplicate. The Saved tab keeps its "Remove from Saved" button since un-saving has no swipe
+    // gesture of its own there.
     const quickacts = inSaved
       ? `<div class="quickacts"><button class="btn small" data-act="unsave" data-id="${esc(it.id)}">Remove from Saved</button></div>`
-      : `<div class="quickacts">
-          <button class="btn small" data-act="save" data-id="${esc(it.id)}">${S.saved.has(it.id) ? 'Saved ✓' : 'Save'}</button>
-          <button class="btn small danger" data-act="dismiss" data-id="${esc(it.id)}">Dismiss</button>
-        </div>`;
+      : '';
     return `<div class="details">
       ${quickacts}
       ${aiLinks(it)}
@@ -1390,7 +1390,7 @@ Please explain:
     box.innerHTML = items.map(savedCardHTML).join('');
   }
 
-  /* ---------- country, sector and group-by drop-downs ---------- */
+  /* ---------- country, sector and priority drop-downs ---------- */
   function ensureFilterSelects() {
     const box = $('#filterBox');
     if (box && !$('#countryFilter')) {   // safety net if an older index.html is still cached
@@ -1398,9 +1398,8 @@ Please explain:
         '<select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>';
     }
     if (box && !$('#viewFilter')) {
-      box.insertAdjacentHTML('beforeend', '<select id="viewFilter" class="filter-dropdown" aria-label="Group by, or show only one priority">' +
-        '<optgroup label="Group by"><option value="priority">By priority</option><option value="country">By country</option><option value="sector">By sector</option></optgroup>' +
-        '<optgroup label="Show only"><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></optgroup></select>');
+      box.insertAdjacentHTML('beforeend', '<select id="viewFilter" class="filter-dropdown" aria-label="Filter by priority">' +
+        '<option value="">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>');
     }
   }
   function fillSelect(sel, allLabel, counts, current) {
@@ -1447,13 +1446,8 @@ Please explain:
     // segmented controls
     $$('#rangeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.f.range));
     $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.f.view));
-    // The dropdown does double duty: grouping mode (priority/country/sector) or a "show only this importance"
-    // filter (Critical/High/Medium/Low). Whichever is active decides what the select currently shows.
     const viewSel = $('#viewFilter');
-    if (viewSel) {
-      const wanted = S.f.imp || S.f.view;
-      if (viewSel.value !== wanted) viewSel.value = wanted;
-    }
+    if (viewSel && viewSel.value !== S.f.imp) viewSel.value = S.f.imp;
     const shown = filtered();
     const merged = shown.reduce((a, i) => a + Math.max(0, (i.sources || []).length - 1), 0);
     $('#briefMeta').textContent = shown.length + (shown.length === 1 ? ' item' : ' items') + (merged ? ', ' + merged + ' duplicate' + (merged > 1 ? 's' : '') + ' merged' : '');
@@ -1692,11 +1686,7 @@ Please explain:
     if (!t || !t.id) return;
     if (t.id === 'countryFilter') { S.f.country = t.value; renderControls(); renderList(); }
     else if (t.id === 'sectorFilter') { S.f.sector = t.value; renderControls(); renderList(); }
-    else if (t.id === 'viewFilter') {
-      if (E.IMP_ORDER.includes(t.value)) { S.f.imp = t.value; S.f.view = 'priority'; }
-      else { S.f.imp = ''; S.f.view = t.value; }
-      renderControls(); renderList();
-    }
+    else if (t.id === 'viewFilter') { S.f.imp = t.value; renderControls(); renderList(); }
   });
   document.addEventListener('keydown', ev => {
     const box = $('#videoModal');

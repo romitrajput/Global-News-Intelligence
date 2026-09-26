@@ -346,18 +346,12 @@ body.noscroll{overflow:hidden}
       <div id="filterBox" class="filters">
         <select id="countryFilter" class="filter-dropdown" aria-label="Filter by country"></select>
         <select id="sectorFilter" class="filter-dropdown" aria-label="Filter by sector"></select>
-        <select id="viewFilter" class="filter-dropdown" aria-label="Group by, or show only one priority">
-          <optgroup label="Group by">
-            <option value="priority">By priority</option>
-            <option value="country">By country</option>
-            <option value="sector">By sector</option>
-          </optgroup>
-          <optgroup label="Show only">
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </optgroup>
+        <select id="viewFilter" class="filter-dropdown" aria-label="Filter by priority">
+          <option value="">All priorities</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
         </select>
       </div>
       <div class="strip" id="countries" aria-label="Countries" hidden></div>
